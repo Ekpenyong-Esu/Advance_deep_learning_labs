@@ -1,8 +1,7 @@
 """
 models/vision_transformer.py — ViT and Swin Transformer for Grade 5
 ====================================================================
-This module provides two Vision Transformer models for CIFAR-10 classification,
-satisfying the Grade-5 requirement of "multiple transformer models".
+Just trying to play with transformers for vision tasks. These are large models pretrained on ImageNet,
 
 What is a Vision Transformer (ViT)?
 ------------------------------------

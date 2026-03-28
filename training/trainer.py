@@ -54,6 +54,7 @@ def _build_optimizer(model: nn.Module, config: dict) -> torch.optim.Optimizer:
     params = filter(lambda p: p.requires_grad, model.parameters())
 
     name = config.get("optimizer", "Adam").upper()
+    
     lr   = config.get("learning_rate", 0.0001)
 
     if name == "SGD":

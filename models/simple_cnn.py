@@ -38,7 +38,8 @@ def _make_activation(name: str) -> nn.Module:
     """
     name = name.lower()
     if name == "leakyrelu":
-        # LeakyReLU lets a small gradient flow for negative inputs,
+        #LeakyReLU(x): x if x>0 else alpha * x (alpha small, e.g. 0.01). Negative inputs are 
+        # multiplied by a small slope instead of clamped to zero.
         # which helps avoid the "dying ReLU" problem.
         return nn.LeakyReLU(negative_slope=0.01)
     elif name == "tanh":

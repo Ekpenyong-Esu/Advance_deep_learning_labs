@@ -55,12 +55,14 @@ def main():
 
     # AlexNet requires 224×224 — use the large-image CIFAR-10 loader
     print("\nLoading CIFAR-10 (upscaled to 224×224 for AlexNet) …")
+
     train_loader, test_loader = get_cifar10_loaders(
         image_size=224,
         batch_size=config.ALEXNET_FINETUNE_CONFIG["batch_size"],
     )
 
     print("\nBuilding AlexNet (pretrained=True, all layers trainable) …")
+
     model = get_alexnet_finetune(num_classes=10, pretrained=True)
 
     best_acc = train_model(
@@ -74,7 +76,7 @@ def main():
 
     print(f"[Result] Experiment : {EXPERIMENT_NAME}")
     print(f"[Result] Best Test Accuracy : {best_acc:.2f}%")
-    print(f"[Result] Mode: Fine-Tuning (all layers updated)\n")
+    print("[Result] Mode: Fine-Tuning (all layers updated)\n")
 
 
 if __name__ == "__main__":

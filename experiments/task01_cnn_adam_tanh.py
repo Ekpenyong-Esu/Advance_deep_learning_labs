@@ -73,7 +73,7 @@ def main():
 
     print(f"[Result] Experiment : {EXPERIMENT_NAME}")
     print(f"[Result] Best Test Accuracy : {best_acc:.2f}%")
-    print(f"[Result] Optimiser: Adam | LR: 0.0001 | Activation: Tanh\n")
+    print("[Result] Optimiser: Adam | LR: 0.0001 | Activation: Tanh\n")
 
 
 if __name__ == "__main__":

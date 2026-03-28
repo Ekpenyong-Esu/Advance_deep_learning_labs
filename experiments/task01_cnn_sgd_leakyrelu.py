@@ -53,7 +53,9 @@ def main():
 
     # ── Step 2: Create model ──────────────────────────────────────────────── #
     print("\nBuilding SimpleCNN (LeakyReLU) …")
+
     model = SimpleCNN(num_classes=10, activation="leakyrelu")
+    
     total_params = sum(p.numel() for p in model.parameters())
     print(f"Total parameters: {total_params:,}")
 
@@ -69,7 +71,7 @@ def main():
 
     print(f"[Result] Experiment : {EXPERIMENT_NAME}")
     print(f"[Result] Best Test Accuracy : {best_acc:.2f}%")
-    print(f"[Result] Optimiser: SGD | LR: 0.0001 | Activation: LeakyReLU\n")
+    print("[Result] Optimiser: SGD | LR: 0.0001 | Activation: LeakyReLU\n")
 
 
 if __name__ == "__main__":

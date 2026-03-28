@@ -52,12 +52,14 @@ def main():
         print(f"GPU   : {torch.cuda.get_device_name(0)}")
 
     print("\nLoading CIFAR-10 (upscaled to 224×224 for AlexNet) …")
+    
     train_loader, test_loader = get_cifar10_loaders(
         image_size=224,
         batch_size=config.ALEXNET_FEATURE_CONFIG["batch_size"],
     )
 
     print("\nBuilding AlexNet (backbone frozen, only FC head trains) …")
+
     model = get_alexnet_feature_extractor(num_classes=10)
 
     best_acc = train_model(
@@ -71,7 +73,7 @@ def main():
 
     print(f"[Result] Experiment : {EXPERIMENT_NAME}")
     print(f"[Result] Best Test Accuracy : {best_acc:.2f}%")
-    print(f"[Result] Mode: Feature Extraction (backbone frozen)\n")
+    print("[Result] Mode: Feature Extraction (backbone frozen)\n")
     print(
         "Why is feature extraction usually lower than fine-tuning?\n"
         "  AlexNet's backbone learned ImageNet patterns (1000 classes, high-res).\n"

@@ -54,11 +54,11 @@ def get_cifar10_loaders(image_size: int = 32, batch_size: int = config.BATCH_SIZ
     cifar10_std  = (0.2023, 0.1994, 0.2010)
 
     # ── Build transforms ───────────────────────────────────────────────────── #
-    if image_size == 224:
+    if image_size == 224: # imagenet was trained on 224×224, so we must match that for pretrained models
         # For pretrained models (AlexNet, ViT, Swin …)
         # Data augmentation: random crop + horizontal flip
         train_transform = transforms.Compose([
-            transforms.Resize(256),
+            transforms.Resize(256), # standard practice for imagenet is to resize to 256 then random crop to 224
             transforms.RandomCrop(224),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),

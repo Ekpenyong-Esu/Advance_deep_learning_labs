@@ -53,19 +53,31 @@ def get_svhn_loaders(batch_size: int = config.BATCH_SIZE):
     ])
 
     train_dataset = datasets.SVHN(
-        root=config.DATA_ROOT, split="train", download=True, transform=transform
+        root=config.DATA_ROOT, 
+        split="train", download=True, 
+        transform=transform
     )
+
     test_dataset = datasets.SVHN(
-        root=config.DATA_ROOT, split="test",  download=True, transform=transform
+        root=config.DATA_ROOT, 
+        split="test",  
+        download=True, 
+        transform=transform
     )
 
     train_loader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True,
-        num_workers=config.NUM_WORKERS, pin_memory=True,
+        train_dataset, 
+        batch_size=batch_size, 
+        shuffle=True,
+        num_workers=config.NUM_WORKERS,
+        pin_memory=True,
     )
     test_loader = DataLoader(
-        test_dataset, batch_size=batch_size, shuffle=False,
-        num_workers=config.NUM_WORKERS, pin_memory=True,
+        test_dataset, 
+        batch_size=batch_size, 
+        shuffle=False,
+        num_workers=config.NUM_WORKERS, 
+        pin_memory=True,
     )
 
     print(f"SVHN (colour) ready  |  train: {len(train_dataset):,}  |  "
@@ -110,30 +122,46 @@ def get_svhn_loaders_grayscale(batch_size: int = config.BATCH_SIZE,
     ])
 
     train_dataset = datasets.SVHN(
-        root=config.DATA_ROOT, split="train", download=True, transform=transform
+        root=config.DATA_ROOT, 
+        split="train", 
+        download=True, 
+        transform=transform
     )
 
     if use_extra:
         # Download the large 'extra' split for Grade-5 (≈1 GB download)
         print("Downloading SVHN 'extra' split (~1 GB) for Grade-5 larger-dataset requirement …")
         extra_dataset = datasets.SVHN(
-            root=config.DATA_ROOT, split="extra", download=True, transform=transform
+            root=config.DATA_ROOT, 
+            split="extra", 
+            download=True, 
+            transform=transform
         )
         # Merge standard training + extra into one big dataset
         train_dataset = ConcatDataset([train_dataset, extra_dataset])
+        
         print(f"Combined train set size: {len(train_dataset):,} images")
 
     test_dataset = datasets.SVHN(
-        root=config.DATA_ROOT, split="test", download=True, transform=transform
+        root=config.DATA_ROOT, 
+        split="test", 
+        download=True, 
+        transform=transform
     )
 
     train_loader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True,
-        num_workers=config.NUM_WORKERS, pin_memory=True,
+        train_dataset, 
+        batch_size=batch_size, 
+        shuffle=True,
+        num_workers=config.NUM_WORKERS, 
+        pin_memory=True,
     )
     test_loader = DataLoader(
-        test_dataset, batch_size=batch_size, shuffle=False,
-        num_workers=config.NUM_WORKERS, pin_memory=True,
+        test_dataset, 
+        batch_size=batch_size, 
+        shuffle=False,
+        num_workers=config.NUM_WORKERS, 
+        pin_memory=True,
     )
 
     total_train = len(train_dataset)

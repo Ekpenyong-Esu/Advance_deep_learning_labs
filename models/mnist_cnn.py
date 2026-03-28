@@ -59,13 +59,13 @@ class MnistCNN(nn.Module):
         self.features = nn.Sequential(
             # Block 1: 1 channel → 32 feature maps
             nn.Conv2d(in_channels=1, out_channels=32, kernel_size=3, padding=1),
-            nn.BatchNorm2d(32),
+            nn.BatchNorm2d(32), # normalisation helps training stability and convergence speed
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),     # 28×28 → 14×14
 
             # Block 2: 32 → 64 feature maps
             nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, padding=1),
-            nn.BatchNorm2d(64),
+            nn.BatchNorm2d(64), # normalisation helps training stability and convergence speed
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),     # 14×14 → 7×7
         )
@@ -74,7 +74,7 @@ class MnistCNN(nn.Module):
         # 28 → 14 → 7  →  64 channels × 7 × 7 = 3136
         flat_size = 64 * (input_size // 4) * (input_size // 4)
 
-        # ── Fully connected classifier ───────────────────────────────────── #
+        # ── Fully connected classifier, This is what makes the decision based on the features.
         self.classifier = nn.Sequential(
             nn.Dropout(p=0.5),
             nn.Linear(flat_size, 512),
