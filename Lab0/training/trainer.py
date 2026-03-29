@@ -79,7 +79,7 @@ def _build_optimizer(model: nn.Module, config: dict) -> torch.optim.Optimizer:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _train_one_epoch(model, loader, optimizer, criterion, device,
-                     epoch, tag):
+                     epoch):
     """
     Train the model for one epoch.
 
@@ -119,15 +119,13 @@ def _train_one_epoch(model, loader, optimizer, criterion, device,
             acc=f"{100. * correct / total:.1f}%",
         )
 
-        # Log per-batch loss to wandb
-        step = epoch * len(loader) + batch_idx
-        wandb.log({"batch_loss": loss.item()}, step=step)
+        #  Use a global step that always increases
+        global_step = epoch * len(loader) + batch_idx
+        wandb.log({"batch_loss": loss.item()}, step=global_step)
 
     avg_loss = running_loss / len(loader)
     accuracy = 100. * correct / total
 
-    # Log per-epoch metrics
-    wandb.log({"train_loss": avg_loss, "train_accuracy": accuracy}, step=epoch)
 
     return avg_loss, accuracy
 
@@ -136,7 +134,7 @@ def _train_one_epoch(model, loader, optimizer, criterion, device,
 # Single epoch: evaluate
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _evaluate(model, loader, criterion, device, epoch, tag):
+def _evaluate(model, loader, criterion, device, epoch):
     """
     Evaluate the model on the test/validation set.
 
@@ -174,8 +172,6 @@ def _evaluate(model, loader, criterion, device, epoch, tag):
     avg_loss = running_loss / len(loader)
     accuracy = 100. * correct / total
 
-    wandb.log({"test_loss": avg_loss, "test_accuracy": accuracy}, step=epoch)
-
     return avg_loss, accuracy
 
 
@@ -212,10 +208,15 @@ def train_model(model, train_loader, test_loader,
     optimizer = _build_optimizer(model, config)
     criterion = nn.CrossEntropyLoss()   # standard for multi-class classification
 
-    wandb.init(project=project, name=experiment_name, config=config, reinit=True)
+    wandb.init(project=project, 
+               name=experiment_name, 
+               config=config, 
+               reinit=True
+              )
 
     # ── Print experiment header ──────────────────────────────────────────── #
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    
     print(f"\n{'═' * 62}")
     print(f"  Experiment : {experiment_name}")
     print(f"  Device     : {device}"
@@ -231,12 +232,24 @@ def train_model(model, train_loader, test_loader,
     for epoch in range(epochs):
         train_loss, train_acc = _train_one_epoch(
             model, train_loader, optimizer, criterion,
-            device, epoch, experiment_name,
+            device, epoch,
         )
         test_loss, test_acc = _evaluate(
             model, test_loader, criterion,
-            device, epoch, experiment_name,
+            device, epoch,
         )
+
+        # ✅ All epoch-level metrics logged together at the same step
+        # Step aligns with the last batch step of this epoch so the
+        # epoch curves overlay correctly with the batch_loss curve.
+        epoch_step = (epoch + 1) * len(train_loader)
+        wandb.log({
+            "train_loss"    : train_loss,
+            "train_accuracy": train_acc,
+            "test_loss"     : test_loss,
+            "test_accuracy" : test_acc,
+            "epoch"         : epoch + 1,
+        }, step=epoch_step)
 
         print(f"  Epoch {epoch+1:>2}/{epochs}  |  "
               f"Train  loss={train_loss:.4f}  acc={train_acc:.1f}%  |  "
