@@ -54,3 +54,5 @@ netrc
 *.log
 *.tmp
 *.bak
+
+.ipynb_checkpoints
