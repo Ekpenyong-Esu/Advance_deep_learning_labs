@@ -68,7 +68,7 @@ def main():
         test_loader     = test_loader,
         config          = experiment_config,
         experiment_name = EXPERIMENT_NAME,
-        log_dir         = config.TENSORBOARD_LOG_DIR,
+        project         = config.WANDB_PROJECT,
     )
 
     print(f"[Result] Experiment : {EXPERIMENT_NAME}")

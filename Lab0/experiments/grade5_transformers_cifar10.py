@@ -5,7 +5,7 @@ Grade 5 — Multiple Transformer Models on CIFAR-10
   Models : ViT-B/16 (Vision Transformer) + Swin-T (Swin Transformer)
   Dataset: CIFAR-10  (images upscaled to 224×224)
   GPU    : Required / strongly recommended (these are large models)
-  Logs   : TensorBoard — compare both models side-by-side
+  Logs   : Weights & Biases — compare both models side-by-side
 
 Why two Transformer models?
   ViT (Vision Transformer) processes image patches as a flat sequence with
@@ -16,19 +16,18 @@ Why two Transformer models?
   HIERARCHICAL (multi-scale) structure.  It is more efficient than ViT and
   generally achieves higher accuracy on dense-prediction tasks.
 
-  Running both lets TensorBoard show a direct performance comparison.
+  Running both lets wandb show a direct performance comparison.
 
 Grade-5 requirements covered in this project:
   ✓ Multiple transformer models  — ViT-B/16 and Swin-T (this file)
   ✓ Larger dataset (~1 GB)       — SVHN extra split in task02_mnist_to_svhn.py
   ✓ GPU support                  — automatic via config.DEVICE
-  ✓ TensorBoard visualisation    — all experiments write to ./runs/
+  ✓ Weights & Biases visualisation  — all experiments write to wandb
 
 Run from the project root:
     python experiments/grade5_transformers_cifar10.py
 
-Compare all experiments in one TensorBoard view:
-    tensorboard --logdir=runs
+Compare all experiments at https://wandb.ai
 """
 
 import sys
@@ -55,7 +54,7 @@ def run_transformer_experiment(model_name: str, model, exp_config: dict,
         test_loader     = test_loader,
         config          = exp_config,
         experiment_name = model_name,
-        log_dir         = config.TENSORBOARD_LOG_DIR,
+        project         = config.WANDB_PROJECT,
     )
     print(f"[Result] {model_name} — Best Test Accuracy: {best_acc:.2f}%")
     return best_acc
@@ -139,7 +138,7 @@ def main():
     for name, acc in results.items():
         print(f"  {name:<30} Best Test Acc: {acc:.2f}%")
     print("─" * 62)
-    print("  View plots: tensorboard --logdir=runs")
+    print("  View plots: https://wandb.ai")
     print("═" * 62)
 
     print(
@@ -148,7 +147,7 @@ def main():
         "  ✓ Larger public dataset ~1 GB  → SVHN extra split"
         " (task02_mnist_to_svhn.py, use_extra_data=True)\n"
         "  ✓ GPU support                  → automatic via config.DEVICE\n"
-        "  ✓ TensorBoard visualisation    → runs/ directory, all experiments\n"
+        "  ✓ Weights & Biases visualisation → https://wandb.ai, all experiments\n"
     )
 
 

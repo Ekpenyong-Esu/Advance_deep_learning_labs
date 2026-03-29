@@ -1,0 +1,464 @@
+\documentclass[12pt,a4paper]{article}
+
+% --- Packages ---
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{multirow}
+
+% --- Hyperlink style ---
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    urlcolor=blue
+}
+
+% --- Section formatting ---
+\titleformat{\section}{\large\bfseries}{}{0em}{}[\titlerule]
+\titleformat{\subsection}{\normalsize\bfseries}{}{0em}{}
+
+% --- Title ---
+\title{\textbf{Lab 0 — Theoretical Tasks Report}\\[0.4em]
+       \large Advanced AI}
+\author{}
+\date{March 2026}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{Part 1 — CNN Pipeline (Tasks 0.1 – 0.7)}
+% ============================================================
+
+\subsection{Task 0.1 — Convolution}
+
+\textbf{Goal:} Compute a \emph{same} convolution of image $I$ with kernel $k$
+using zero-padding and stride $(1,1)$.
+
+\[
+I =
+\begin{bmatrix}
+1 &  1 &  1 & 1\\
+1 &  1 &  2 & 1\\
+1 & -3 & -4 & 1\\
+1 &  1 &  1 & 1
+\end{bmatrix}
+\qquad
+k =
+\begin{bmatrix}
+0 & 1 & 0\\
+1 & 2 & 1\\
+0 & 1 & 0
+\end{bmatrix}
+\]
+
+\textbf{Step 1 — Zero-pad $I$ to a $6\times6$ matrix:}
+
+\[
+I_{\text{pad}} =
+\begin{bmatrix}
+0 &  0 &  0 &  0 & 0 & 0\\
+0 &  1 &  1 &  1 & 1 & 0\\
+0 &  1 &  1 &  2 & 1 & 0\\
+0 &  1 & -3 & -4 & 1 & 0\\
+0 &  1 &  1 &  1 & 1 & 0\\
+0 &  0 &  0 &  0 & 0 & 0
+\end{bmatrix}
+\]
+
+\textbf{Step 2 — Slide the kernel and compute the dot product at every position.}
+
+For each output position $(r, c)$, extract the $3\times3$ patch from $I_{\text{pad}}$
+starting at $(r, c)$, multiply element-wise with $k$, and sum.
+
+\medskip
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{ccl}
+\toprule
+Position & Patch $\odot\, k$ & Result \\
+\midrule
+$(0,0)$ & $0{+}0{+}0\ |\ 0{+}2{+}1\ |\ 0{+}1{+}0$ & $4$ \\
+$(0,1)$ & $0{+}0{+}0\ |\ 1{+}2{+}1\ |\ 0{+}1{+}0$ & $5$ \\
+$(0,2)$ & $0{+}0{+}0\ |\ 1{+}2{+}1\ |\ 0{+}2{+}0$ & $6$ \\
+$(0,3)$ & $0{+}0{+}0\ |\ 1{+}2{+}0\ |\ 0{+}1{+}0$ & $4$ \\
+$(1,0)$ & $0{+}1{+}0\ |\ 0{+}2{+}1\ |\ 0{+}1{+}0$ & $5$ \\
+$(1,1)$ & $0{+}1{+}0\ |\ 1{+}2{+}2\ |\ 0{+}{-3}{+}0$ & $3$ \\
+$(1,2)$ & $0{+}1{+}0\ |\ 1{+}4{+}1\ |\ 0{+}{-4}{+}0$ & $3$ \\
+$(1,3)$ & $0{+}1{+}0\ |\ 2{+}2{+}0\ |\ 0{+}1{+}0$ & $6$ \\
+$(2,0)$ & $0{+}1{+}0\ |\ 0{+}2{-}3\ |\ 0{+}1{+}0$ & $1$ \\
+$(2,1)$ & $0{+}1{+}0\ |\ 1{-}6{-}4\ |\ 0{+}1{+}0$ & $-7$ \\
+$(2,2)$ & $0{+}2{+}0\ |\ {-3}{-}8{+}1\ |\ 0{+}1{+}0$ & $-7$ \\
+$(2,3)$ & $0{+}1{+}0\ |\ {-4}{+}2{+}0\ |\ 0{+}1{+}0$ & $0$ \\
+$(3,0)$ & $0{+}1{+}0\ |\ 0{+}2{+}1\ |\ 0{+}0{+}0$ & $4$ \\
+$(3,1)$ & $0{-}3{+}0\ |\ 1{+}2{+}1\ |\ 0{+}0{+}0$ & $1$ \\
+$(3,2)$ & $0{-}4{+}0\ |\ 1{+}2{+}1\ |\ 0{+}0{+}0$ & $0$ \\
+$(3,3)$ & $0{+}1{+}0\ |\ 1{+}2{+}0\ |\ 0{+}0{+}0$ & $4$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Convolution output $I * k$:}
+
+\[
+I * k =
+\begin{bmatrix}
+ 4 &  5 &  6 & 4\\
+ 5 &  3 &  3 & 6\\
+ 1 & -7 & -7 & 0\\
+ 4 &  1 &  0 & 4
+\end{bmatrix}
+\]
+
+% ------------------------------------------------------------
+\subsection{Task 0.2 — Non-Linearity (ReLU)}
+
+Convolutional layers are followed by a non-linear activation function.
+The most common is \textbf{ReLU} (Rectified Linear Unit):
+
+\[
+\text{ReLU}(x) = \max(0,\, x)
+\]
+
+Every negative value is replaced by 0; positive values remain unchanged.
+Applying ReLU to the convolution output:
+
+\[
+\text{ReLU}(I * k) =
+\begin{bmatrix}
+4 & 5 & 6 & 4\\
+5 & 3 & 3 & 6\\
+1 & 0 & 0 & 0\\
+4 & 1 & 0 & 4
+\end{bmatrix}
+\]
+
+% ------------------------------------------------------------
+\subsection{Task 0.3 — Max Pooling}
+
+Max Pooling with a $2\times2$ filter (valid, no padding) divides the feature map
+into non-overlapping $2\times2$ blocks and keeps the \textbf{maximum} value in each block.
+
+\medskip
+The $4\times4$ ReLU output splits into four $2\times2$ blocks:
+
+\[
+\underbrace{\begin{bmatrix}4&5\\5&3\end{bmatrix}}_{\max=5}
+\quad
+\underbrace{\begin{bmatrix}6&4\\3&6\end{bmatrix}}_{\max=6}
+\quad
+\underbrace{\begin{bmatrix}1&0\\4&1\end{bmatrix}}_{\max=4}
+\quad
+\underbrace{\begin{bmatrix}0&0\\0&4\end{bmatrix}}_{\max=4}
+\]
+
+\textbf{Max Pooling output:}
+\[
+\begin{bmatrix}5 & 6\\4 & 4\end{bmatrix}
+\]
+
+% ------------------------------------------------------------
+\subsection{Task 0.4 — Flattening}
+
+Flattening reshapes the 2D matrix into a 1D vector by reading
+left-to-right, row by row:
+
+\[
+\begin{bmatrix}5 & 6\\4 & 4\end{bmatrix}
+\;\longrightarrow\;
+\mathbf{v} = [5,\ 6,\ 4,\ 4]
+\]
+
+% ------------------------------------------------------------
+\subsection{Task 0.5 — Fully Connected Layer}
+
+A fully connected layer applies a weight matrix $W$ to map features to
+class scores: $\mathbf{z} = W\mathbf{v}$.
+
+Using the example weight matrix (3 output classes):
+\[
+W =
+\begin{bmatrix}
+1 & 0 & 1 & 0\\
+0 & 1 & 0 & 1\\
+1 & 1 & 0 & 0
+\end{bmatrix},
+\qquad
+\mathbf{v} =
+\begin{bmatrix}5\\6\\4\\4\end{bmatrix}
+\]
+
+\[
+z_1 = 1{\cdot}5 + 0{\cdot}6 + 1{\cdot}4 + 0{\cdot}4 = 9
+\]
+\[
+z_2 = 0{\cdot}5 + 1{\cdot}6 + 0{\cdot}4 + 1{\cdot}4 = 10
+\]
+\[
+z_3 = 1{\cdot}5 + 1{\cdot}6 + 0{\cdot}4 + 0{\cdot}4 = 11
+\]
+
+\[
+\mathbf{z} = [9,\ 10,\ 11]
+\]
+
+% ------------------------------------------------------------
+\subsection{Task 0.6 — Softmax}
+
+Softmax converts raw scores into probabilities that sum to 1:
+
+\[
+\text{softmax}(z_i) = \frac{e^{z_i}}{\displaystyle\sum_{j} e^{z_j}}
+\]
+
+For $\mathbf{z} = [9, 10, 11]$:
+
+\[
+e^9 \approx 8103, \quad e^{10} \approx 22026, \quad e^{11} \approx 59874,
+\quad \text{Sum} \approx 90003
+\]
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{cccc}
+\toprule
+Class & Raw score & $e^{z_i}$ & Probability \\
+\midrule
+Class 0 & 9  & 8103  & $0.090\;(9.0\%)$  \\
+Class 1 & 10 & 22026 & $0.245\;(24.5\%)$ \\
+Class 2 & 11 & 59874 & $\mathbf{0.665\;(66.5\%)}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Predicted class: Class 2} (highest probability).
+
+% ------------------------------------------------------------
+\subsection{Task 0.7 — Loss Functions}
+
+Given: ground truth $\mathbf{g} = [0, 1, 0]$ (true class is index 1) and
+prediction $\mathbf{y} = [0.25, 0.60, 0.15]$.
+
+\subsubsection*{Cross-Entropy Loss}
+
+\[
+H(\mathbf{y}, \mathbf{g}) = -\sum_{i} g_i \log(y_i)
+\]
+
+Only the term where $g_i = 1$ (index 1) contributes:
+
+\[
+H = -(0{\cdot}\log 0.25 + 1{\cdot}\log 0.6 + 0{\cdot}\log 0.15)
+  = -\log(0.6) \approx \boxed{0.511}
+\]
+
+\subsubsection*{Mean Squared Error Loss}
+
+\[
+\text{MSE}(\mathbf{y},\mathbf{g}) = \frac{1}{n}\sum_{i}(y_i - g_i)^2
+\]
+
+\[
+\text{MSE} = \frac{1}{3}\left[(0.25-0)^2 + (0.60-1)^2 + (0.15-0)^2\right]
+           = \frac{0.0625 + 0.16 + 0.0225}{3}
+           = \frac{0.245}{3}
+           \approx \boxed{0.082}
+\]
+
+\subsubsection*{Hinge Loss (SVM Loss)}
+
+\[
+\text{SVM}(\mathbf{y}, j) = \sum_{i \,|\, i \neq j} \max\!\bigl(0,\; y_i - y_j + 1\bigr)
+\]
+
+True class is $j=1$, so $y_j = 0.6$.  Sum over $i \in \{0, 2\}$:
+
+\[
+\text{SVM} = \max(0,\; 0.25 - 0.6 + 1) + \max(0,\; 0.15 - 0.6 + 1)
+           = \max(0, 0.65) + \max(0, 0.55)
+           = 0.65 + 0.55
+           = \boxed{1.20}
+\]
+
+\newpage
+
+% ============================================================
+\section{Part 2 — Evaluation Metrics}
+% ============================================================
+
+\subsection{Task 0.1 — Theoretical Foundations}
+
+\begin{enumerate}[leftmargin=*, label=\textbf{\arabic*.}]
+
+\item \textbf{When is accuracy a bad idea?}
+
+    Accuracy is unreliable when the dataset is \textbf{class-imbalanced}.
+    For example, if 95\% of samples belong to class A and only 5\% to class B,
+    a model that always predicts class A achieves 95\% accuracy while being
+    completely useless for class B.  The high true-negative count for the
+    majority class inflates the score and hides poor minority-class performance.
+
+\item \textbf{What part of the accuracy formula makes it less desirable than IoU?}
+
+    \[
+    \text{Accuracy} = \frac{TP + TN}{TP + TN + FP + FN}
+    \qquad
+    \text{IoU} = \frac{TP}{TP + FP + FN}
+    \]
+
+    Accuracy includes \textbf{True Negatives (TN)} in both the numerator and
+    denominator.  In a multi-class setting, TN is very large (all the classes
+    not present in a sample that are also not predicted), artificially boosting
+    the score.  IoU completely ignores TNs and therefore gives a more honest
+    measure of overlap between prediction and ground truth.
+
+\item \textbf{Jaccard Index vs.\ F1-Measure — which is better for NNs?}
+
+    \[
+    \text{Jaccard (IoU)} = \frac{TP}{TP + FP + FN}
+    \qquad
+    F_1 = \frac{2\,TP}{2\,TP + FP + FN}
+    \]
+
+    They are mathematically related: $F_1 = \dfrac{2\,\text{IoU}}{1 + \text{IoU}}$.
+    The difference is that F1 double-weights true positives compared to IoU.
+    \textbf{F1 is generally more suited for measuring NN performance} because it
+    combines Precision and Recall into a single balanced score and is the
+    standard benchmark metric in most classification tasks.
+
+\end{enumerate}
+
+% ------------------------------------------------------------
+\subsection{Task 0.2 — Practice}
+
+\textbf{Setup.}  We have 8 pixel positions with multi-label annotations
+(B = Background, T = Text, D = Decoration, C = Comment):
+
+\medskip
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lcccccccc}
+\toprule
+ & \textbf{1} & \textbf{2} & \textbf{3} & \textbf{4} & \textbf{5} & \textbf{6} & \textbf{7} & \textbf{8} \\
+\midrule
+\textbf{GT} & B & T  & B  & B   & T,D & T,D & T,D & T,D \\
+\textbf{P}  & B & B  & T,D & B,D & B,C & T,C & T   & T,D \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\medskip
+\textbf{Step 1 — Class Frequencies} (count of GT occurrences):
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lll}
+\toprule
+Class & GT pixels & Frequency \\
+\midrule
+B & 1, 3, 4 & 3 \\
+T & 2, 5, 6, 7, 8 & 5 \\
+D & 5, 6, 7, 8 & 4 \\
+C & — & 0 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\medskip
+\textbf{Step 2 — Per-Class TP, FP, FN.}
+For each class, check which pixels are in the GT set and which are in the
+predicted set:
+
+\medskip
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lcccc}
+\toprule
+Class & GT set & Predicted set & TP & FP \& FN \\
+\midrule
+B & \{1,3,4\}   & \{1,2,4,5\} & 2 & FP=2 (pixels 2,5); FN=1 (pixel 3) \\
+T & \{2,5,6,7,8\} & \{3,6,7,8\} & 3 & FP=1 (pixel 3); FN=2 (pixels 2,5) \\
+D & \{5,6,7,8\} & \{3,4,8\}   & 1 & FP=2 (pixels 3,4); FN=3 (pixels 5,6,7) \\
+C & \{\}          & \{5,6\}      & 0 & FP=2; FN=0 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\medskip
+\textbf{Step 3 — Metric Formulas:}
+
+\[
+\text{Jaccard} = \frac{TP}{TP+FP+FN}, \quad
+\text{Precision} = \frac{TP}{TP+FP}, \quad
+\text{Recall} = \frac{TP}{TP+FN}, \quad
+F_1 = \frac{2\,TP}{2\,TP+FP+FN}
+\]
+
+\medskip
+\textbf{Step 4 — Per-Class Results:}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{lcccccc}
+\toprule
+Class & Freq & Jaccard & Precision & Recall & F1 \\
+\midrule
+B & 3 & $\tfrac{2}{5} = 0.400$ & $\tfrac{2}{4} = 0.500$ & $\tfrac{2}{3} = 0.667$ & $\tfrac{4}{7} = 0.571$ \\
+T & 5 & $\tfrac{3}{6} = 0.500$ & $\tfrac{3}{4} = 0.750$ & $\tfrac{3}{5} = 0.600$ & $\tfrac{6}{9} = 0.667$ \\
+D & 4 & $\tfrac{1}{6} = 0.167$ & $\tfrac{1}{3} = 0.333$ & $\tfrac{1}{4} = 0.250$ & $\tfrac{2}{7} = 0.286$ \\
+C & 0 & $0.000$ & $0.000$ & $0.000$ & $0.000$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\medskip
+\textbf{Step 5 — Mean Metrics.}
+
+\textit{Macro average} (equal weight per class, divide by 4):
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lll}
+\toprule
+Metric & Calculation & Mean \\
+\midrule
+Jaccard   & $(0.400 + 0.500 + 0.167 + 0) / 4$ & $0.267$ \\
+Precision & $(0.500 + 0.750 + 0.333 + 0) / 4$ & $0.396$ \\
+Recall    & $(0.667 + 0.600 + 0.250 + 0) / 4$ & $0.379$ \\
+F1        & $(0.571 + 0.667 + 0.286 + 0) / 4$ & $0.381$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textit{Weighted average} (weights = class frequencies 3, 5, 4, 0; total = 12):
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lll}
+\toprule
+Metric & Calculation & Weighted Mean \\
+\midrule
+Jaccard   & $(3{\times}0.400 + 5{\times}0.500 + 4{\times}0.167 + 0) / 12$ & $0.364$ \\
+Precision & $(3{\times}0.500 + 5{\times}0.750 + 4{\times}0.333 + 0) / 12$ & $0.549$ \\
+Recall    & $(3{\times}0.667 + 5{\times}0.600 + 4{\times}0.250 + 0) / 12$ & $0.500$ \\
+F1        & $(3{\times}0.571 + 5{\times}0.667 + 4{\times}0.286 + 0) / 12$ & $0.516$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\medskip
+\textbf{Observation:}  The weighted average gives more importance to frequent
+classes (T and D), while the macro average treats all four classes equally —
+including class C which never appears in the ground truth but was wrongly
+predicted twice (two false positives).
+
+\end{document}

@@ -82,7 +82,7 @@ def stage1_train_mnist():
         test_loader     = test_loader,
         config          = mnist_config,
         experiment_name = "Task02_MNIST_Training",
-        log_dir         = config.TENSORBOARD_LOG_DIR,
+        project         = config.WANDB_PROJECT,
     )
 
     # Save weights for Stage 2
@@ -127,7 +127,7 @@ def stage2_transfer_svhn():
         test_loader     = test_loader,
         config          = svhn_config,
         experiment_name = "Task02_SVHN_Transfer",
-        log_dir         = config.TENSORBOARD_LOG_DIR,
+        project         = config.WANDB_PROJECT,
     )
 
     print(f"[Stage 2 Result] SVHN Test Accuracy (after transfer) : {best_acc:.2f}%\n")

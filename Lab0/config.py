@@ -6,6 +6,10 @@ Change values in this file to quickly modify experiment behaviour.
 """
 
 import torch
+from pathlib import Path
+
+# Project root (directory containing this config.py)
+PROJECT_ROOT = Path(__file__).resolve().parent
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Device — automatically uses GPU if one is available
@@ -15,7 +19,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # ─────────────────────────────────────────────────────────────────────────────
 # Data settings
 # ─────────────────────────────────────────────────────────────────────────────
-DATA_ROOT   = "./data_files"   # Where datasets are downloaded to
+DATA_ROOT   = str(PROJECT_ROOT / "data_files")   # Where datasets are downloaded to
 BATCH_SIZE  = 64               # Number of images per training batch
 NUM_WORKERS = 2                # Parallel data-loading workers (set 0 on Windows if you get errors)
 
@@ -26,15 +30,15 @@ CIFAR10_CLASSES = [
 ]
 
 # ─────────────────────────────────────────────────────────────────────────────
-# TensorBoard log directory
-# Run  `tensorboard --logdir=runs`  in the project root to view results.
+# Weights & Biases project name
+# All experiment runs are grouped under this project at https://wandb.ai
 # ─────────────────────────────────────────────────────────────────────────────
-TENSORBOARD_LOG_DIR = "./runs"
+WANDB_PROJECT = "advanced-ai-lab"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Checkpoint directory — saved models are stored here
 # ─────────────────────────────────────────────────────────────────────────────
-CHECKPOINT_DIR = "./checkpoints"
+CHECKPOINT_DIR = str(PROJECT_ROOT / "checkpoints")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Task 0.1 — Simple CNN experiments on CIFAR-10

@@ -1,22 +1,21 @@
 """
-training/trainer.py — Generic Training Loop with TensorBoard
-=============================================================
+training/trainer.py — Generic Training Loop with Weights & Biases
+==================================================================
 This single trainer works for ALL experiments in this project.
 
 It handles:
   • Creating the right optimiser (SGD or Adam) from the config dict
   • Training one epoch  (forward pass → loss → backward → weight update)
   • Evaluating on the test set after every epoch
-  • Logging loss + accuracy to TensorBoard at every batch and epoch
+  • Logging loss + accuracy to Weights & Biases at every batch and epoch
   • Printing a clean progress bar to the terminal with tqdm
 
-TensorBoard
------------
-After running any experiment, open a terminal and run:
+Weights & Biases (wandb)
+------------------------
+All metrics are automatically synced to https://wandb.ai.
+Log in once before running experiments:
 
-    tensorboard --logdir=runs
-
-Then open http://localhost:6006 in your browser to see the plots.
+    wandb login
 
 Usage
 -----
@@ -31,10 +30,9 @@ Usage
     )
 """
 
-import os
 import torch
 import torch.nn as nn
-from torch.utils.tensorboard import SummaryWriter
+import wandb
 from tqdm import tqdm
 
 
@@ -81,7 +79,7 @@ def _build_optimizer(model: nn.Module, config: dict) -> torch.optim.Optimizer:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _train_one_epoch(model, loader, optimizer, criterion, device,
-                     epoch, writer, tag):
+                     epoch, tag):
     """
     Train the model for one epoch.
 
@@ -121,16 +119,15 @@ def _train_one_epoch(model, loader, optimizer, criterion, device,
             acc=f"{100. * correct / total:.1f}%",
         )
 
-        # Log per-batch loss to TensorBoard
+        # Log per-batch loss to wandb
         step = epoch * len(loader) + batch_idx
-        writer.add_scalar(f"{tag}/batch_loss", loss.item(), step)
+        wandb.log({"batch_loss": loss.item()}, step=step)
 
     avg_loss = running_loss / len(loader)
     accuracy = 100. * correct / total
 
     # Log per-epoch metrics
-    writer.add_scalar(f"{tag}/train_loss",     avg_loss, epoch)
-    writer.add_scalar(f"{tag}/train_accuracy", accuracy, epoch)
+    wandb.log({"train_loss": avg_loss, "train_accuracy": accuracy}, step=epoch)
 
     return avg_loss, accuracy
 
@@ -139,7 +136,7 @@ def _train_one_epoch(model, loader, optimizer, criterion, device,
 # Single epoch: evaluate
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _evaluate(model, loader, criterion, device, epoch, writer, tag):
+def _evaluate(model, loader, criterion, device, epoch, tag):
     """
     Evaluate the model on the test/validation set.
 
@@ -177,8 +174,7 @@ def _evaluate(model, loader, criterion, device, epoch, writer, tag):
     avg_loss = running_loss / len(loader)
     accuracy = 100. * correct / total
 
-    writer.add_scalar(f"{tag}/test_loss",     avg_loss, epoch)
-    writer.add_scalar(f"{tag}/test_accuracy", accuracy, epoch)
+    wandb.log({"test_loss": avg_loss, "test_accuracy": accuracy}, step=epoch)
 
     return avg_loss, accuracy
 
@@ -189,7 +185,7 @@ def _evaluate(model, loader, criterion, device, epoch, writer, tag):
 
 def train_model(model, train_loader, test_loader,
                 config: dict, experiment_name: str,
-                log_dir: str = "./runs") -> float:
+                project: str = "advanced-ai-lab") -> float:
     """
     Full training loop: train for N epochs, evaluate after each epoch,
     log everything to TensorBoard, and return the best test accuracy.
@@ -201,8 +197,8 @@ def train_model(model, train_loader, test_loader,
     test_loader     : DataLoader
     config          : dict        — must contain at minimum:
                         'device', 'epochs', 'learning_rate', 'optimizer'
-    experiment_name : str         — used as TensorBoard tag and printed label
-    log_dir         : str         — root folder for TensorBoard logs
+    experiment_name : str         — used as wandb run name and printed label
+    project         : str         — wandb project name to group all runs
 
     Returns
     -------
@@ -216,8 +212,7 @@ def train_model(model, train_loader, test_loader,
     optimizer = _build_optimizer(model, config)
     criterion = nn.CrossEntropyLoss()   # standard for multi-class classification
 
-    tb_path = os.path.join(log_dir, experiment_name)
-    writer  = SummaryWriter(log_dir=tb_path)
+    wandb.init(project=project, name=experiment_name, config=config, reinit=True)
 
     # ── Print experiment header ──────────────────────────────────────────── #
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -228,7 +223,7 @@ def train_model(model, train_loader, test_loader,
     print(f"  Optimiser  : {config.get('optimizer')}  lr={config.get('learning_rate')}")
     print(f"  Epochs     : {epochs}")
     print(f"  Trainable  : {trainable:,} parameters")
-    print(f"  TensorBoard: tensorboard --logdir={log_dir}")
+    print(f"  W&B project : {project}  (view at https://wandb.ai)")
     print(f"{'═' * 62}\n")
 
     best_accuracy = 0.0
@@ -236,11 +231,11 @@ def train_model(model, train_loader, test_loader,
     for epoch in range(epochs):
         train_loss, train_acc = _train_one_epoch(
             model, train_loader, optimizer, criterion,
-            device, epoch, writer, experiment_name,
+            device, epoch, experiment_name,
         )
         test_loss, test_acc = _evaluate(
             model, test_loader, criterion,
-            device, epoch, writer, experiment_name,
+            device, epoch, experiment_name,
         )
 
         print(f"  Epoch {epoch+1:>2}/{epochs}  |  "
@@ -250,12 +245,12 @@ def train_model(model, train_loader, test_loader,
         if test_acc > best_accuracy:
             best_accuracy = test_acc
 
-    writer.close()
+    wandb.finish()
 
     print(f"\n{'─' * 62}")
     print(f"  ✓ {experiment_name}")
     print(f"    Best Test Accuracy : {best_accuracy:.2f}%")
-    print(f"    TensorBoard logs   : {tb_path}")
+    print(f"    W&B dashboard      : https://wandb.ai")
     print(f"{'─' * 62}\n")
 
     return best_accuracy
