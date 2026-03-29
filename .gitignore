@@ -1,0 +1,56 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ── Virtual environments ───────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ── Jupyter ────────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ── ML / Training artefacts ───────────────────────────────────────────────────
+checkpoints/
+*.pth
+*.pt
+*.ckpt
+*.h5
+
+# Downloaded datasets — never commit raw data
+data_files/
+
+# TensorBoard logs (legacy — now using wandb)
+runs/
+
+# Weights & Biases local cache
+wandb/
+
+# ── OS / Editor ────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+*.swp
+*.swo
+
+# ── Secrets / Credentials ──────────────────────────────────────────────────────
+.env
+*.env
+netrc
+.netrc
+
+# ── Misc ───────────────────────────────────────────────────────────────────────
+*.log
+*.tmp
+*.bak
