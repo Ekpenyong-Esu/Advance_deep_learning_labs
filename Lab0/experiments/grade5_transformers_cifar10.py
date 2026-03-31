@@ -51,13 +51,13 @@ def run_transformer_experiment(model_name: str, model, exp_config: dict,
     best_acc = train_model(
         model           = model,
         train_loader    = train_loader,
-        val_loader      = val_loader
+        val_loader      = val_loader,
         test_loader     = test_loader,
         config          = exp_config,
         experiment_name = model_name,
         project         = config.WANDB_PROJECT,
     )
-    print(f"[Result] {model_name} — Best Test Accuracy: {best_acc:.2f}%")
+    print(f"[Result] {model_name} — Best Val Accuracy: {best_acc:.2f}%")
     return best_acc
 
 
@@ -92,14 +92,14 @@ def main():
         )
         vit_train, vit_val, vit_test   = train_loader, val_loader, test_loader
         
-        swin_train, swin_loader, swin_test = train_loader, val_loader, test_loader
+        swin_train, swin_eval, swin_test = train_loader, val_loader, test_loader
     else:
         print(f"\nLoading CIFAR-10 for ViT (224×224, batch={vit_batch}) …")
         vit_train, vit_val, vit_test = get_cifar10_loaders(
             image_size=224, batch_size=vit_batch
         )
         print(f"\nLoading CIFAR-10 for Swin (224×224, batch={swin_batch}) …")
-        swin_train, swine_val, swin_test = get_cifar10_loaders(
+        swin_train, swin_val, swin_test = get_cifar10_loaders(
             image_size=224, batch_size=swin_batch
         )
 

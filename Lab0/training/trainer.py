@@ -288,7 +288,7 @@ def train_model(model, train_loader, val_loader, test_loader,
         model, test_loader, criterion, device, epoch=epochs - 1, tag="test",
     )
 
-   final_step = epochs * len(train_loader)
+    final_step = epochs * len(train_loader)
 
     wandb.log({
         "test_loss"    : test_loss,
