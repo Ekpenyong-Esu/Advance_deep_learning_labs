@@ -53,7 +53,7 @@ def main():
 
     print("\nLoading CIFAR-10 (upscaled to 224×224 for AlexNet) …")
     
-    train_loader, test_loader = get_cifar10_loaders(
+    train_loader, val_loader, test_loader = get_cifar10_loaders(
         image_size=224,
         batch_size=config.ALEXNET_FEATURE_CONFIG["batch_size"],
     )
@@ -65,6 +65,7 @@ def main():
     best_acc = train_model(
         model           = model,
         train_loader    = train_loader,
+        val_loader      = val_loader,
         test_loader     = test_loader,
         config          = experiment_config,
         experiment_name = EXPERIMENT_NAME,

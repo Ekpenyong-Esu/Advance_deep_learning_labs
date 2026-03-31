@@ -47,24 +47,30 @@ experiment_config = {
 
 def main():
     print(f"\nDevice: {config.DEVICE}")
+    
     if config.DEVICE.type == "cuda":
         print(f"GPU   : {torch.cuda.get_device_name(0)}")
 
     print("\nLoading CIFAR-10 …")
-    train_loader, test_loader = get_cifar10_loaders(
+    
+    train_loader, val_loader, test_loader = get_cifar10_loaders(
         image_size=32,
         batch_size=config.BATCH_SIZE,
     )
 
     # NOTE: The only change from task01_cnn_adam_leakyrelu.py is activation="tanh"
     print("\nBuilding SimpleCNN (Tanh) …")
+    
     model = SimpleCNN(num_classes=10, activation="tanh")
+    
     total_params = sum(p.numel() for p in model.parameters())
+    
     print(f"Total parameters: {total_params:,}")
 
     best_acc = train_model(
         model           = model,
         train_loader    = train_loader,
+        val_loader      = val_loader, 
         test_loader     = test_loader,
         config          = experiment_config,
         experiment_name = EXPERIMENT_NAME,

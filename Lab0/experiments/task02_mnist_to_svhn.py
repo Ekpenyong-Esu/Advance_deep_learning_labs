@@ -61,13 +61,15 @@ MNIST_CHECKPOINT = os.path.join(config.CHECKPOINT_DIR, "mnist_cnn.pth")
 # ─────────────────────────────────────────────────────────────────────────────
 
 def stage1_train_mnist():
+    
     print("\n" + "═" * 62)
     print("  STAGE 1 — Train CNN on MNIST")
     print("═" * 62)
 
-    train_loader, test_loader = get_mnist_loaders(batch_size=config.BATCH_SIZE)
+    train_loader, val_loader, test_loader = get_mnist_loaders(batch_size=config.BATCH_SIZE)
 
     model = MnistCNN(num_classes=10, input_size=28)
+    
     total = sum(p.numel() for p in model.parameters())
     print(f"MnistCNN parameters: {total:,}")
 
@@ -79,6 +81,7 @@ def stage1_train_mnist():
     best_acc = train_model(
         model           = model,
         train_loader    = train_loader,
+        val_loader      = val_loader
         test_loader     = test_loader,
         config          = mnist_config,
         experiment_name = "Task02_MNIST_Training",
@@ -102,7 +105,8 @@ def stage2_transfer_svhn():
     print("═" * 62)
 
     use_extra = config.SVHN_TRANSFER_CONFIG.get("use_extra_data", False)
-    train_loader, test_loader = get_svhn_loaders_grayscale(
+    
+    train_loader, val_loader, test_loader = get_svhn_loaders_grayscale(
         batch_size=config.BATCH_SIZE,
         use_extra=use_extra,
     )
@@ -124,6 +128,7 @@ def stage2_transfer_svhn():
     best_acc = train_model(
         model           = model,
         train_loader    = train_loader,
+        val_loader      = val_loader,
         test_loader     = test_loader,
         config          = svhn_config,
         experiment_name = "Task02_SVHN_Transfer",

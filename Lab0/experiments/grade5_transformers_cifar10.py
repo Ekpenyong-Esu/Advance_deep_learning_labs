@@ -46,11 +46,12 @@ from training.trainer          import train_model
 # ─────────────────────────────────────────────────────────────────────────────
 
 def run_transformer_experiment(model_name: str, model, exp_config: dict,
-                                train_loader, test_loader) -> float:
+                                train_loader, val_loader, test_loader) -> float:
     print(f"\n{'▶' * 3}  Starting transformer experiment: {model_name}")
     best_acc = train_model(
         model           = model,
         train_loader    = train_loader,
+        val_loader      = val_loader
         test_loader     = test_loader,
         config          = exp_config,
         experiment_name = model_name,
@@ -65,7 +66,9 @@ def run_transformer_experiment(model_name: str, model, exp_config: dict,
 # ─────────────────────────────────────────────────────────────────────────────
 
 def main():
+    
     print(f"\nDevice: {config.DEVICE}")
+
     if config.DEVICE.type == "cuda":
         print(f"GPU   : {torch.cuda.get_device_name(0)}")
     else:
@@ -84,18 +87,19 @@ def main():
     # if their batch sizes are equal; otherwise load separately.
     if vit_batch == swin_batch:
         print(f"\nLoading CIFAR-10 (224×224, batch={vit_batch}) …")
-        train_loader, test_loader = get_cifar10_loaders(
+        train_loader, val_loader, test_loader = get_cifar10_loaders(
             image_size=224, batch_size=vit_batch
         )
-        vit_train, vit_test   = train_loader, test_loader
-        swin_train, swin_test = train_loader, test_loader
+        vit_train, vit_val, vit_test   = train_loader, val_loader, test_loader
+        
+        swin_train, swin_loader, swin_test = train_loader, val_loader, test_loader
     else:
         print(f"\nLoading CIFAR-10 for ViT (224×224, batch={vit_batch}) …")
-        vit_train, vit_test = get_cifar10_loaders(
+        vit_train, vit_val, vit_test = get_cifar10_loaders(
             image_size=224, batch_size=vit_batch
         )
         print(f"\nLoading CIFAR-10 for Swin (224×224, batch={swin_batch}) …")
-        swin_train, swin_test = get_cifar10_loaders(
+        swin_train, swine_val, swin_test = get_cifar10_loaders(
             image_size=224, batch_size=swin_batch
         )
 
@@ -113,6 +117,7 @@ def main():
         model        = vit_model,
         exp_config   = vit_config,
         train_loader = vit_train,
+        val_loader   = vit_val,
         test_loader  = vit_test,
     )
 
@@ -128,6 +133,7 @@ def main():
         model        = swin_model,
         exp_config   = swin_config,
         train_loader = swin_train,
+        val_loader   = swin_val,
         test_loader  = swin_test,
     )
 

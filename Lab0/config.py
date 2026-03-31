@@ -49,7 +49,7 @@ CNN_SGD_CONFIG = {
     "learning_rate": 0.0001,
     "optimizer":     "SGD",
     "activation":    "leakyrelu",
-    "epochs":        20,
+    "epochs":        100,
     "momentum":      0.9,   # default SGD momentum
     "weight_decay":  0.0,   # default SGD weight decay
 }
@@ -59,7 +59,7 @@ CNN_ADAM_CONFIG = {
     "learning_rate": 0.0001,
     "optimizer":     "Adam",
     "activation":    "leakyrelu",
-    "epochs":        20,
+    "epochs":        100,
     "betas":         (0.9, 0.999),  # default Adam betas
     "eps":           1e-8,          # default Adam epsilon
     "weight_decay":  0.0,
@@ -70,7 +70,7 @@ CNN_TANH_CONFIG = {
     "learning_rate": 0.0001,
     "optimizer":     "Adam",
     "activation":    "tanh",
-    "epochs":        20,
+    "epochs":        100,
     "betas":         (0.9, 0.999),
     "eps":           1e-8,
     "weight_decay":  0.0,
@@ -83,7 +83,7 @@ CNN_TANH_CONFIG = {
 ALEXNET_FINETUNE_CONFIG = {
     "learning_rate": 0.0001,
     "optimizer":     "Adam",
-    "epochs":        10,
+    "epochs":        100,
     "batch_size":    32,    # smaller batch because images are 224×224
     "num_classes":   10,
 }
@@ -91,7 +91,7 @@ ALEXNET_FINETUNE_CONFIG = {
 ALEXNET_FEATURE_CONFIG = {
     "learning_rate": 0.001,   # Higher LR: only the tiny FC head is trained
     "optimizer":     "Adam",
-    "epochs":        5,
+    "epochs":        100,
     "batch_size":    32,
     "num_classes":   10,
 }

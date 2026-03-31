@@ -5,6 +5,11 @@ SVHN is a real-world digit recognition dataset collected from Google Street View
 
   Training set : ~73,257 colour images (32×32 px)
   Extra split  : ~531,131 additional training images  ← Grade-5 "larger dataset"
+
+  This loader further splits the training set into:
+    Train      : ~58,605 images (80%)
+    Validation : ~14,652 images (20%)
+
   Test set     : ~26,032 images
   Classes      : digits 0 – 9
 
@@ -18,11 +23,9 @@ Usage
 -----
     from data.svhn_loader import get_svhn_loaders, get_svhn_loaders_grayscale
 
-    # Standard colour loader (for independent SVHN experiments)
-    train_loader, test_loader = get_svhn_loaders()
+    train_loader, val_loader, test_loader = get_svhn_loaders()
 
-    # Grayscale 28×28 loader (for transfer from MNIST)
-    train_loader, test_loader = get_svhn_loaders_grayscale(use_extra=True)
+    train_loader, val_loader, test_loader = get_svhn_loaders_grayscale(use_extra=True)
 """
 
 import sys
@@ -44,7 +47,8 @@ def get_svhn_loaders(batch_size: int = config.BATCH_SIZE):
 
     Returns
     -------
-    train_loader : DataLoader
+    train_loader : DataLoader    
+    val_loader   : DataLoader
     test_loader  : DataLoader
     """
     transform = transforms.Compose([
@@ -52,9 +56,10 @@ def get_svhn_loaders(batch_size: int = config.BATCH_SIZE):
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ])
 
-    train_dataset = datasets.SVHN(
+    full_train_dataset = datasets.SVHN(
         root=config.DATA_ROOT, 
-        split="train", download=True, 
+        split="train", 
+        download=True, 
         transform=transform
     )
 
@@ -64,26 +69,43 @@ def get_svhn_loaders(batch_size: int = config.BATCH_SIZE):
         download=True, 
         transform=transform
     )
+    
+    train_size = int(len(full_train_dataset) * 0.8)
+    val_size = len(full_train_dataset) - train_size 
 
-    train_loader = DataLoader(
-        train_dataset, 
-        batch_size=batch_size, 
+    generator = torch.Generator().manual_seed(42)
+    
+    train_dataset, val_dataset = random_split(full_train_dataset, [train_size, val_size], generator)
+
+   train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
         shuffle=True,
         num_workers=config.NUM_WORKERS,
         pin_memory=True,
     )
-    test_loader = DataLoader(
-        test_dataset, 
-        batch_size=batch_size, 
+
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
         shuffle=False,
-        num_workers=config.NUM_WORKERS, 
+        num_workers=config.NUM_WORKERS,
         pin_memory=True,
     )
 
-    print(f"SVHN (colour) ready  |  train: {len(train_dataset):,}  |  "
-          f"test: {len(test_dataset):,}  |  32×32 RGB")
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=config.NUM_WORKERS,
+        pin_memory=True,
+    )
 
-    return train_loader, test_loader
+  
+    print(f"SVHN (colour) ready | train: {len(train_dataset):,} | "
+          f"val: {len(val_dataset):,} | test: {len(test_dataset):,} | 32×32 RGB")
+
+    return train_loader, val_loader, test_loader
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -110,6 +132,7 @@ def get_svhn_loaders_grayscale(batch_size: int = config.BATCH_SIZE,
     Returns
     -------
     train_loader : DataLoader
+    val_loader   : DataLoader
     test_loader  : DataLoader
     """
 
@@ -149,23 +172,45 @@ def get_svhn_loaders_grayscale(batch_size: int = config.BATCH_SIZE,
         transform=transform
     )
 
+    val_size = int(len(train_dataset) * val_fraction)
+    train_size = len(train_dataset) - val_size
+    
+    generator = torch.Generator().manual_seed(42)
+    
+    train_dataset, val_dataset = random_split(train_dataset, [train_size, val_size],generator)
+
+
     train_loader = DataLoader(
-        train_dataset, 
-        batch_size=batch_size, 
+        train_dataset,
+        batch_size=batch_size,
         shuffle=True,
-        num_workers=config.NUM_WORKERS, 
+        num_workers=config.NUM_WORKERS,
         pin_memory=True,
     )
-    test_loader = DataLoader(
-        test_dataset, 
-        batch_size=batch_size, 
+
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
         shuffle=False,
-        num_workers=config.NUM_WORKERS, 
+        num_workers=config.NUM_WORKERS,
         pin_memory=True,
     )
 
-    total_train = len(train_dataset)
-    print(f"SVHN (grayscale 28×28) ready  |  train: {total_train:,}  |  "
-          f"test: {len(test_dataset):,}  |  extra split: {use_extra}")
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=config.NUM_WORKERS,
+        pin_memory=True,
+    )
 
-    return train_loader, test_loader
+
+    print(
+        f"SVHN (grayscale) ready | "
+        f"train: {len(train_dataset):,} | "
+        f"val: {len(val_dataset):,} | "
+        f"test: {len(test_dataset):,} | "
+        f"image size: 28×28 | channels: 1 | extra split: {use_extra}"
+    )
+    
+    return train_loader, val_loader, test_loader

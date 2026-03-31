@@ -44,6 +44,7 @@ def load_checkpoint(model: nn.Module, path: str,
         raise FileNotFoundError(f"Checkpoint not found: {path}")
 
     map_location = device if device is not None else torch.device("cpu")
+    
     state_dict   = torch.load(path, map_location=map_location)
     model.load_state_dict(state_dict)
     print(f"Checkpoint loaded ← {path}")

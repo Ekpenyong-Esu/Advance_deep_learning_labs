@@ -41,12 +41,14 @@ experiment_config = {
 
 def main():
     print(f"\nDevice: {config.DEVICE}")
+    
     if config.DEVICE.type == "cuda":
         print(f"GPU   : {torch.cuda.get_device_name(0)}")
 
     # ── Step 1: Load data ─────────────────────────────────────────────────── #
     print("\nLoading CIFAR-10 …")
-    train_loader, test_loader = get_cifar10_loaders(
+    
+    train_loader, val_loader, test_loader = get_cifar10_loaders(
         image_size=32,
         batch_size=config.BATCH_SIZE,
     )
@@ -57,12 +59,14 @@ def main():
     model = SimpleCNN(num_classes=10, activation="leakyrelu")
     
     total_params = sum(p.numel() for p in model.parameters())
+    
     print(f"Total parameters: {total_params:,}")
 
     # ── Step 3: Train ─────────────────────────────────────────────────────── #
     best_acc = train_model(
         model           = model,
         train_loader    = train_loader,
+        val_loader      = val_loader,
         test_loader     = test_loader,
         config          = experiment_config,
         experiment_name = EXPERIMENT_NAME,
