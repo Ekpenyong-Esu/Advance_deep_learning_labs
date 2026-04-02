@@ -34,6 +34,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, ConcatDataset
+
+import torch
+from torch.utils.data import DataLoader, ConcatDataset, random_split
+
 import config
 
 
@@ -77,13 +81,13 @@ def get_svhn_loaders(batch_size: int = config.BATCH_SIZE):
     
     train_dataset, val_dataset = random_split(full_train_dataset, [train_size, val_size], generator)
 
-   train_loader = DataLoader(
+    train_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
         shuffle=True,
         num_workers=config.NUM_WORKERS,
         pin_memory=True,
-    )
+     )
 
     val_loader = DataLoader(
         val_dataset,
@@ -172,7 +176,7 @@ def get_svhn_loaders_grayscale(batch_size: int = config.BATCH_SIZE,
         transform=transform
     )
 
-    val_size = int(len(train_dataset) * val_fraction)
+    val_size = int(len(train_dataset) * 0.2)
     train_size = len(train_dataset) - val_size
     
     generator = torch.Generator().manual_seed(42)

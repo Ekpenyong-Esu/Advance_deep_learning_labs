@@ -109,6 +109,7 @@ def main():
     print("\nBuilding ViT-B/16 (pretrained on ImageNet) …")
 
     vit_model  = get_vit_model(num_classes=10)
+    
     vit_config = {**config.VIT_CONFIG, "device": config.DEVICE}
     vit_config.pop("image_size", None)   # trainer does not use image_size
 
@@ -125,6 +126,7 @@ def main():
     print("\nBuilding Swin-T (pretrained on ImageNet) …")
     
     swin_model  = get_swin_transformer(num_classes=10)
+    
     swin_config = {**config.SWIN_CONFIG, "device": config.DEVICE}
     swin_config.pop("image_size", None)
 

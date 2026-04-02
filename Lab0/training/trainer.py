@@ -171,9 +171,9 @@ def _evaluate(model, loader, criterion, device, epoch, tag):
             correct += predicted.eq(labels).sum().item()
 
             bar.set_postfix(
-                loss=f"{running_loss / (total / labels.size(0)):.4f}",
-                acc=f"{100. * correct / total:.1f}%",
-            )
+             loss=f"{running_loss / (len(loader)):.4f}" if len(loader) > 0 else "0.0000",
+             acc=f"{100. * correct / total:.1f}%",
+             )
 
     avg_loss = running_loss / len(loader)
     accuracy = 100. * correct / total
@@ -218,7 +218,7 @@ def train_model(model, train_loader, val_loader, test_loader,
     best_val_accuracy : float   — highest validation accuracy (%) achieved
     """
     device = config.get("device", torch.device("cpu"))
-    epochs = config.get("epochs", 10)
+    epochs = config.get("epochs", 200)
 
     model = model.to(device)
 
@@ -288,12 +288,9 @@ def train_model(model, train_loader, val_loader, test_loader,
         model, test_loader, criterion, device, epoch=epochs - 1, tag="test",
     )
 
-    final_step = epochs * len(train_loader)
-
-    wandb.log({
-        "test_loss"    : test_loss,
-        "test_accuracy": test_acc,
-    }, step=final_step)
+    wandb.summary["test_loss"] = test_loss
+    wandb.summary["test_accuracy"] = test_acc
+    wandb.summary["best_val_accuracy"] = best_val_accuracy
 
     # ── Summary ──────────────────────────────────────────────────────────── #
     wandb.finish()

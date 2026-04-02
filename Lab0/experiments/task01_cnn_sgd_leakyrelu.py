@@ -11,7 +11,7 @@ Run from the project root:
     python experiments/task01_cnn_sgd_leakyrelu.py
 
 View in TensorBoard:
-    tensorboard --logdir=runs
+      https://wandb.ai
 """
 
 import sys
@@ -74,7 +74,7 @@ def main():
     )
 
     print(f"[Result] Experiment : {EXPERIMENT_NAME}")
-    print(f"[Result] Best Test Accuracy : {best_acc:.2f}%")
+    print(f"[Result] Best Validation Accuracy : {best_acc:.2f}%")
     print("[Result] Optimiser: SGD | LR: 0.0001 | Activation: LeakyReLU\n")
 
 

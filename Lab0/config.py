@@ -49,7 +49,7 @@ CNN_SGD_CONFIG = {
     "learning_rate": 0.0001,
     "optimizer":     "SGD",
     "activation":    "leakyrelu",
-    "epochs":        100,
+    "epochs":        200,
     "momentum":      0.9,   # default SGD momentum
     "weight_decay":  0.0,   # default SGD weight decay
 }
@@ -59,7 +59,7 @@ CNN_ADAM_CONFIG = {
     "learning_rate": 0.0001,
     "optimizer":     "Adam",
     "activation":    "leakyrelu",
-    "epochs":        100,
+    "epochs":        200,
     "betas":         (0.9, 0.999),  # default Adam betas
     "eps":           1e-8,          # default Adam epsilon
     "weight_decay":  0.0,
@@ -70,7 +70,7 @@ CNN_TANH_CONFIG = {
     "learning_rate": 0.0001,
     "optimizer":     "Adam",
     "activation":    "tanh",
-    "epochs":        100,
+    "epochs":        200,
     "betas":         (0.9, 0.999),
     "eps":           1e-8,
     "weight_decay":  0.0,
@@ -83,7 +83,7 @@ CNN_TANH_CONFIG = {
 ALEXNET_FINETUNE_CONFIG = {
     "learning_rate": 0.0001,
     "optimizer":     "Adam",
-    "epochs":        100,
+    "epochs":        50,
     "batch_size":    32,    # smaller batch because images are 224×224
     "num_classes":   10,
 }
@@ -91,7 +91,7 @@ ALEXNET_FINETUNE_CONFIG = {
 ALEXNET_FEATURE_CONFIG = {
     "learning_rate": 0.001,   # Higher LR: only the tiny FC head is trained
     "optimizer":     "Adam",
-    "epochs":        100,
+    "epochs":        50,
     "batch_size":    32,
     "num_classes":   10,
 }
@@ -102,14 +102,14 @@ ALEXNET_FEATURE_CONFIG = {
 MNIST_CONFIG = {
     "learning_rate": 0.001,
     "optimizer":     "Adam",
-    "epochs":        10,
+    "epochs":        100,
     "num_classes":   10,
 }
 
 SVHN_TRANSFER_CONFIG = {
     "learning_rate": 0.0001,  # Lower LR for fine-tuning
     "optimizer":     "Adam",
-    "epochs":        10,
+    "epochs":        100,
     "num_classes":   10,
     # Set True to also download SVHN 'extra' split (~530 K extra images, ~1 GB).
     # This satisfies the Grade-5 "larger public dataset" requirement.

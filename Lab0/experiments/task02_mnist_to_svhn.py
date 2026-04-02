@@ -81,7 +81,7 @@ def stage1_train_mnist():
     best_acc = train_model(
         model           = model,
         train_loader    = train_loader,
-        val_loader      = val_loader
+        val_loader      = val_loader,
         test_loader     = test_loader,
         config          = mnist_config,
         experiment_name = "Task02_MNIST_Training",
