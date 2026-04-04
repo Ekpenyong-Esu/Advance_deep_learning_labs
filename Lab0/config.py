@@ -33,7 +33,7 @@ CIFAR10_CLASSES = [
 # Weights & Biases project name
 # All experiment runs are grouped under this project at https://wandb.ai
 # ─────────────────────────────────────────────────────────────────────────────
-WANDB_PROJECT = "advanced-ai-lab"
+WANDB_PROJECT = "advanced-ai-lab-0"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Checkpoint directory — saved models are stored here

@@ -20,14 +20,16 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Dataset paths
 # ─────────────────────────────────────────────────────────────────────────────
 SMALL_DATASET_PATH  = str(PROJECT_ROOT / "amazon_cells_labelled.txt")          # 1 K rows
+
 LARGE_DATASET_PATH  = str(PROJECT_ROOT / "amazon_cells_labelled_LARGE_25K.txt") # 25 K rows
+
 PUBLIC_DATASET_NAME = "amazon_polarity"  # Hugging Face dataset identifier (~3.6 M rows, ~1 GB)
 
 
 # Cap training samples from the public dataset for practical training speed.
 # The full dataset is still downloaded (~1 GB), satisfying the Grade-5 requirement.
 # Set to None to use the entire dataset.
-PUBLIC_MAX_SAMPLES  = 100_000
+PUBLIC_MAX_SAMPLES  = None
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Weights & Biases project name
