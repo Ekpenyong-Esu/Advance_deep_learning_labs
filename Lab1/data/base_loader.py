@@ -116,30 +116,40 @@ def _split(texts: list, labels: list):
     """
     Stratified 70 / 15 / 15 train / val / test split.
 
-    Stratification keeps the class ratio identical in all three splits,
-    which matters especially for the small (1 K) dataset.
+    train_test_split can only split data into two parts at a time, so we
+    need two steps to produce three parts:
+
+      Step 1 — split ALL data  →  85% (train+val pool)  |  15% test
+      Step 2 — split the pool  →  70% train             |  15% val
+
+    The val_ratio in Step 2 is 15/85 ≈ 0.176 because we're now working
+    with 85% of the data, and we want 15% of the original total.
+
+    Stratification ensures the positive/negative class ratio is the same
+    in all three splits (important for the small 1 K dataset).
 
     Returns
     -------
-    tr_texts, va_texts, te_texts, tr_labels, va_labels, te_labels
+    train_texts, val_texts, test_texts, train_labels, val_labels, test_labels
     """
-    test_ratio = 1.0 - config.TRAIN_RATIO - config.VAL_RATIO
-    tr_t, te_t, tr_l, te_l = train_test_split(
+    # Step 1 — 100% → 85% train+val pool  |  15% test
+    train_val_texts, test_texts, train_val_labels, test_labels = train_test_split(
         texts, labels,
-        test_size=test_ratio,
+        test_size=0.15,                  # 15% goes to test
         random_state=config.RANDOM_SEED,
         stratify=labels,
     )
 
-    val_ratio_adj = config.VAL_RATIO / (config.TRAIN_RATIO + config.VAL_RATIO)
-    tr_t, va_t, tr_l, va_l = train_test_split(
-        tr_t, tr_l,
-        test_size=val_ratio_adj,
+    # Step 2 — 85% pool → 70% train  |  15% val
+    # 15 / 85 ≈ 0.176 gives us exactly 15% of the original total
+    train_texts, val_texts, train_labels, val_labels = train_test_split(
+        train_val_texts, train_val_labels,
+        test_size=0.176,                 # 15% of the original total
         random_state=config.RANDOM_SEED,
-        stratify=tr_l,
+        stratify=train_val_labels,
     )
 
-    return tr_t, va_t, te_t, tr_l, va_l, te_l
+    return train_texts, val_texts, test_texts, train_labels, val_labels, test_labels
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -164,4 +174,7 @@ def get_raw_splits(dataset: str = "large"):
     tr_labels, va_labels, te_labels : list[int] — 0 or 1
     """
     texts, labels = _load_dataset(dataset)
-    return _split(texts, labels)
+    
+    train_texts, val_texts, test_texts, train_labels, val_labels, test_labels = _split(texts, labels)
+    
+    return train_texts, val_texts, test_texts, train_labels, val_labels, test_labels

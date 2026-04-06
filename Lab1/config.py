@@ -20,16 +20,12 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Dataset paths
 # ─────────────────────────────────────────────────────────────────────────────
 SMALL_DATASET_PATH  = str(PROJECT_ROOT / "amazon_cells_labelled.txt")          # 1 K rows
-
 LARGE_DATASET_PATH  = str(PROJECT_ROOT / "amazon_cells_labelled_LARGE_25K.txt") # 25 K rows
-
 PUBLIC_DATASET_NAME = "amazon_polarity"  # Hugging Face dataset identifier (~3.6 M rows, ~1 GB)
-
-
 # Cap training samples from the public dataset for practical training speed.
 # The full dataset is still downloaded (~1 GB), satisfying the Grade-5 requirement.
 # Set to None to use the entire dataset.
-PUBLIC_MAX_SAMPLES  = None
+PUBLIC_MAX_SAMPLES  = 100_000
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Weights & Biases project name
@@ -55,7 +51,7 @@ VAL_RATIO    = 0.15
 # ─────────────────────────────────────────────────────────────────────────────
 # Text preprocessing settings
 # ─────────────────────────────────────────────────────────────────────────────
-TFIDF_MAX_FEATURES  = 50_000   # TF-IDF vocabulary cap (used by the Simple ANN)
+TFIDF_MAX_FEATURES  = 8_000   # TF-IDF vocabulary cap (used by the Simple ANN)
 LSTM_MAX_VOCAB      = 30_000   # Word embedding vocabulary cap (used by the BiLSTM)
 LSTM_MAX_LEN        = 256      # Max tokens per sentence for the BiLSTM
 TRANSFORMER_MAX_LEN = 128      # Max tokens per sentence for BERT / DistilBERT
@@ -68,29 +64,39 @@ METRICS = ["accuracy", "f1", "precision", "recall"]
 # ─────────────────────────────────────────────────────────────────────────────
 ANN_SMALL_CONFIG = {
     "dataset":       "small",
-    "learning_rate": 0.001,
+    "learning_rate": 0.0005,   # was 0.001 — reduce overshoot
     "optimizer":     "Adam",
-    "epochs":        20,
-    "batch_size":    64,
-    "dropout":       0.3,
+    "epochs":        50,
+    "batch_size":    16,
+    "dropout":       0.5,      # was 0.1 — crank dropout back up hard
+    "weight_decay":  1e-2,     # was 1e-5 — much stronger L2
+    "early_stopping_patience": 5,
+    "use_scheduler": True,
+    "warmup_ratio":  0.1,
 }
 
 ANN_LARGE_CONFIG = {
     "dataset":       "large",
-    "learning_rate": 0.001,
+    "learning_rate": 0.00005,
     "optimizer":     "Adam",
     "epochs":        20,
     "batch_size":    64,
-    "dropout":       0.3,
+    "dropout":       0.5,
+    "weight_decay":  5e-3,
+    "early_stopping_patience": 2,
+    "warmup_ratio":  0.05,
 }
 
 ANN_PUBLIC_CONFIG = {
     "dataset":       "public",
-    "learning_rate": 0.001,
+    "learning_rate": 0.0001,
     "optimizer":     "Adam",
     "epochs":        10,
     "batch_size":    128,
-    "dropout":       0.3,
+    "dropout":       0.5,
+    "weight_decay":  5e-3,
+    "early_stopping_patience": 3,
+    "warmup_ratio":  0.05,
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -105,8 +111,10 @@ BILSTM_SMALL_CONFIG = {
     "embed_dim":     128,
     "hidden_dim":    256,
     "num_layers":    2,
-    "dropout":       0.3,
+    "dropout":       0.5,
+    "weight_decay":  1e-4,
     "grad_clip":     1.0,   # prevent exploding gradients in LSTM
+    "early_stopping_patience": 5,
 }
 
 BILSTM_LARGE_CONFIG = {
@@ -118,8 +126,10 @@ BILSTM_LARGE_CONFIG = {
     "embed_dim":     128,
     "hidden_dim":    256,
     "num_layers":    2,
-    "dropout":       0.3,
+    "dropout":       0.5,
+    "weight_decay":  1e-4,
     "grad_clip":     1.0,   # prevent exploding gradients in LSTM
+    "early_stopping_patience": 5,
 }
 
 BILSTM_PUBLIC_CONFIG = {
@@ -131,8 +141,10 @@ BILSTM_PUBLIC_CONFIG = {
     "embed_dim":     128,
     "hidden_dim":    256,
     "num_layers":    2,
-    "dropout":       0.3,
+    "dropout":       0.5,
+    "weight_decay":  1e-4,
     "grad_clip":     1.0,   # prevent exploding gradients in LSTM
+    "early_stopping_patience": 3,
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -142,13 +154,14 @@ BERT_CONFIG = {
     "model_name":    "bert-base-uncased",
     "dataset":       "large",           # train on the 25 K Amazon reviews
     "learning_rate": 2e-5,
-    "optimizer":     "Adam",
-    "epochs":        5,
+    "optimizer":     "AdamW",           # decoupled weight decay (critical for transformers)
+    "epochs":        10,
     "batch_size":    16,                # BERT is large — keep batch small
     "max_len":       128,
     "weight_decay":  0.01,
     "use_scheduler": True,             # linear warmup + decay
     "warmup_ratio":  0.1,              # 10% of steps used for warmup
+    "early_stopping_patience": 3,      # stop if val_loss doesn't improve for 3 epochs
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -159,13 +172,14 @@ DISTILBERT_CONFIG = {
     "model_name":    "distilbert-base-uncased",
     "dataset":       "large",
     "learning_rate": 2e-5,
-    "optimizer":     "Adam",
-    "epochs":        5,
+    "optimizer":     "AdamW",           # decoupled weight decay (critical for transformers)
+    "epochs":        10,
     "batch_size":    32,
     "max_len":       128,
     "weight_decay":  0.01,
     "use_scheduler": True,             # linear warmup + decay
     "warmup_ratio":  0.1,
+    "early_stopping_patience": 3,      # stop if val_loss doesn't improve for 3 epochs
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -176,24 +190,26 @@ BERT_PUBLIC_CONFIG = {
     "model_name":    "bert-base-uncased",
     "dataset":       "public",
     "learning_rate": 2e-5,
-    "optimizer":     "Adam",
-    "epochs":        3,
+    "optimizer":     "AdamW",
+    "epochs":        5,
     "batch_size":    16,
     "max_len":       128,
     "weight_decay":  0.01,
     "use_scheduler": True,
     "warmup_ratio":  0.1,
+    "early_stopping_patience": 2,
 }
 
 DISTILBERT_PUBLIC_CONFIG = {
     "model_name":    "distilbert-base-uncased",
     "dataset":       "public",
     "learning_rate": 2e-5,
-    "optimizer":     "Adam",
-    "epochs":        3,
+    "optimizer":     "AdamW",
+    "epochs":        5,
     "batch_size":    32,
     "max_len":       128,
     "weight_decay":  0.01,
     "use_scheduler": True,
     "warmup_ratio":  0.1,
+    "early_stopping_patience": 2,
 }

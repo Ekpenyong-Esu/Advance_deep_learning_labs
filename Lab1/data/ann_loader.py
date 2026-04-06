@@ -78,40 +78,47 @@ def get_ann_loaders(dataset: str = "small", batch_size: int = config.BATCH_SIZE)
     """
     print(f"\nLoading ANN data  [{dataset} dataset] …")
     texts, labels = _load_dataset(dataset)
-    tr_t, va_t, te_t, tr_l, va_l, te_l = _split(texts, labels)
+    train_texts, val_texts, test_texts, train_labels, val_labels, test_labels = _split(texts, labels)
 
     print("  Preprocessing text (classical) …")
-    tr_t = batch_preprocess(tr_t, mode="classical")
-    va_t = batch_preprocess(va_t, mode="classical")
-    te_t = batch_preprocess(te_t, mode="classical")
+
+    train_texts = batch_preprocess(train_texts, mode="classical")
+    val_texts   = batch_preprocess(val_texts,   mode="classical")
+    test_texts  = batch_preprocess(test_texts,  mode="classical")
 
     print("  Fitting TF-IDF on training split (will NOT see val / test) …")
+
+    min_df = 1 if dataset == "small" else 3
+
     vectorizer = TfidfVectorizer(
         analyzer="word",
-        ngram_range=(1, 2),
+        ngram_range=(1, 2),                       # unigrams + bigrams
         max_features=config.TFIDF_MAX_FEATURES,
-        max_df=0.5,
+        min_df=min_df,                                 # drop terms seen in fewer than 3 docs (noise filter)
+        max_df=0.5,                               # drop terms in more than 50% of docs (too common)
         use_idf=True,
         norm="l2",
     )
-    tr_X = vectorizer.fit_transform(tr_t)   # fit + transform training only
-    va_X = vectorizer.transform(va_t)        # transform only
-    te_X = vectorizer.transform(te_t)        # transform only
+    train_tfidf = vectorizer.fit_transform(train_texts)  # fit + transform training only
+
+    val_tfidf   = vectorizer.transform(val_texts)        # transform only
+    test_tfidf  = vectorizer.transform(test_texts)       # transform only
 
     vocab_size = len(vectorizer.vocabulary_)
+    
     print(f"  TF-IDF vocab: {vocab_size:,} features")
-    print(f"  Split: {len(tr_l):,} train / {len(va_l):,} val / {len(te_l):,} test")
+    print(f"  Split: {len(train_labels):,} train / {len(val_labels):,} val / {len(test_labels):,} test")
 
     train_loader = DataLoader(
-        _SparseTFIDFDataset(tr_X, tr_l),
+        _SparseTFIDFDataset(train_tfidf, train_labels),
         batch_size=batch_size, shuffle=True,  num_workers=config.NUM_WORKERS,
     )
     val_loader = DataLoader(
-        _SparseTFIDFDataset(va_X, va_l),
+        _SparseTFIDFDataset(val_tfidf, val_labels),
         batch_size=batch_size, shuffle=False, num_workers=config.NUM_WORKERS,
     )
     test_loader = DataLoader(
-        _SparseTFIDFDataset(te_X, te_l),
+        _SparseTFIDFDataset(test_tfidf, test_labels),
         batch_size=batch_size, shuffle=False, num_workers=config.NUM_WORKERS,
     )
     return train_loader, val_loader, test_loader, vocab_size

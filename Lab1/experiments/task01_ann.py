@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import torch
 import config
 from data.ann_loader   import get_ann_loaders
-from models.ann_model  import SimpleANN
+from models.ann_model  import build_ann
 from training.trainer      import train_model
 from utils.helpers         import count_parameters, save_checkpoint
 
@@ -35,7 +35,9 @@ from utils.helpers         import count_parameters, save_checkpoint
 
 def _run(dataset: str, exp_config: dict, experiment_name: str) -> dict:
     """Load data, build model, train, and return results."""
+
     print(f"\nDevice: {config.DEVICE}")
+
     if config.DEVICE.type == "cuda":
         print(f"GPU   : {torch.cuda.get_device_name(0)}")
 
@@ -46,13 +48,16 @@ def _run(dataset: str, exp_config: dict, experiment_name: str) -> dict:
     )
 
     # ── Step 2: Build model ────────────────────────────────────────────── #
-    print(f"\nBuilding SimpleANN  (vocab_size={vocab_size:,}) …")
-    model = SimpleANN(
+    print(f"\nBuilding ANN  (vocab_size={vocab_size:,}) …")
+
+    model = build_ann(
+        dataset=dataset,
         vocab_size=vocab_size,
-        dropout=exp_config.get("dropout", 0.3),
+        dropout=exp_config.get("dropout", 0.5),
     )
 
     params = count_parameters(model)
+
     print(f"  Total parameters    : {params['total']:,}")
     print(f"  Trainable parameters: {params['trainable']:,}")
 
@@ -69,6 +74,7 @@ def _run(dataset: str, exp_config: dict, experiment_name: str) -> dict:
 
     # ── Step 4: Save checkpoint ────────────────────────────────────────── #
     ckpt_path = os.path.join(config.CHECKPOINT_DIR, f"{experiment_name}.pth")
+
     save_checkpoint(model, ckpt_path)
 
     print(f"[Result] Experiment       : {experiment_name}")

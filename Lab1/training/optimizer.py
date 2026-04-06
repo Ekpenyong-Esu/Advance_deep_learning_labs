@@ -5,8 +5,9 @@ Builds the correct PyTorch optimizer from a config dict.
 
 Supported optimizers
 --------------------
-  "SGD"  — stochastic gradient descent with optional momentum + weight decay
-  "ADAM" — adaptive moment estimation
+  "SGD"   — stochastic gradient descent with optional momentum + weight decay
+  "ADAM"  — adaptive moment estimation
+  "ADAMW" — Adam with decoupled weight decay (recommended for transformers)
 
 Usage
 -----
@@ -47,6 +48,14 @@ def build_optimizer(model: nn.Module, config: dict) -> torch.optim.Optimizer:
             momentum=config.get("momentum", 0.9),
             weight_decay=config.get("weight_decay", 0.0),
         )
+    elif name == "ADAMW":
+        return torch.optim.AdamW(
+            params,
+            lr=lr,
+            betas=config.get("betas", (0.9, 0.999)),
+            eps=config.get("eps", 1e-8),
+            weight_decay=config.get("weight_decay", 0.01),
+        )
     elif name == "ADAM":
         return torch.optim.Adam(
             params,
@@ -56,4 +65,4 @@ def build_optimizer(model: nn.Module, config: dict) -> torch.optim.Optimizer:
             weight_decay=config.get("weight_decay", 0.0),
         )
     else:
-        raise ValueError(f"Unknown optimizer '{name}'. Use 'SGD' or 'Adam'.")
+        raise ValueError(f"Unknown optimizer '{name}'. Use 'SGD', 'Adam', or 'AdamW'.")

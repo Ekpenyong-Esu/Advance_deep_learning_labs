@@ -1,6 +1,6 @@
 """
-experiments/grade5_comparison.py
-==================================
+experiments/grade5_transformers_public.py
+==========================================
 Grade 5 — Multiple Transformer Models on a Large Public Dataset (~1 GB)
 
   Datasets  : amazon_polarity from Hugging Face  (~3.6 M reviews, ~1 GB)
@@ -29,7 +29,7 @@ Grade-5 checklist
   ✓  W&B / wandb visualisation      — all runs logged to https://wandb.ai
 
 Run from the project root:
-    python experiments/grade5_comparison.py
+    python experiments/grade5_transformers_public.py
 
 View all experiment plots at https://wandb.ai  (project: advanced-ai-lab-1)
 """
@@ -63,7 +63,9 @@ def _run_transformer(
     print(f"\n{'▶' * 3}  Starting: {experiment_name}")
 
     model  = model_cls(model_name=model_name)
+    
     params = count_parameters(model)
+    
     print(f"  Parameters — total: {params['total']:,}  "
           f"trainable: {params['trainable']:,}")
 
@@ -78,6 +80,7 @@ def _run_transformer(
     )
 
     ckpt_path = os.path.join(config.CHECKPOINT_DIR, f"{experiment_name}.pth")
+    
     save_checkpoint(model, ckpt_path)
 
     print(f"[Result] {experiment_name}")
@@ -100,6 +103,7 @@ def main() -> dict:
     dict mapping model name → results dict
     """
     print(f"\nDevice: {config.DEVICE}")
+    
     if config.DEVICE.type == "cuda":
         print(f"GPU   : {torch.cuda.get_device_name(0)}")
     else:
@@ -113,9 +117,11 @@ def main() -> dict:
 
     # ── Experiment A: BERT on public dataset ─────────────────────────── #
     bert_cfg  = {**config.BERT_PUBLIC_CONFIG, "device": config.DEVICE}
+    
     bert_name = bert_cfg["model_name"]
 
     print(f"\nLoading public dataset for BERT ({bert_name}) …")
+    
     bert_train, bert_val, bert_test = get_transformer_loaders(
         model_name=bert_name,
         dataset="public",
@@ -135,9 +141,11 @@ def main() -> dict:
 
     # ── Experiment B: DistilBERT on public dataset ───────────────────── #
     dbert_cfg  = {**config.DISTILBERT_PUBLIC_CONFIG, "device": config.DEVICE}
+    
     dbert_name = dbert_cfg["model_name"]
 
     print(f"\nLoading public dataset for DistilBERT ({dbert_name}) …")
+    
     dbert_train, dbert_val, dbert_test = get_transformer_loaders(
         model_name=dbert_name,
         dataset="public",

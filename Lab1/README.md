@@ -31,7 +31,7 @@ Lab1/
 │   ├── task01_bilstm.py             ← BiLSTM on small + large datasets
 │   ├── task02_bert.py               ← BERT fine-tuning
 │   ├── task02_distilbert.py         ← DistilBERT fine-tuning
-│   └── grade5_comparison.py        ← BERT + DistilBERT on the public ~1 GB dataset
+│   └── grade5_transformers_public.py ← BERT + DistilBERT on the public ~1 GB dataset
 │
 └── utils/
     ├── helpers.py                   ← Checkpoint save / load, parameter counter
@@ -72,7 +72,7 @@ For Grade 5, they are also trained on the large public dataset (see below).
 | 3 | Both provided datasets (1 K + 25 K) | `task01_ann.py` and `task01_bilstm.py` run on both |
 | 3 | ANN model + transformer model | `ann_model.py` + `bert_model.py` / `distilbert_model.py` |
 | 4 | Larger public dataset (~1 GB) OR multiple transformers | Both satisfied |
-| 5 | Larger public dataset (~1 GB) AND multiple transformers | `grade5_comparison.py` — `amazon_polarity` from Hugging Face + BERT + DistilBERT |
+| 5 | Larger public dataset (~1 GB) AND multiple transformers | `grade5_transformers_public.py` — `amazon_polarity` from Hugging Face + BERT + DistilBERT |
 | 5 | GPU support | Automatic via `config.DEVICE` |
 | 5 | W&B / wandb visualisation | All experiments log to `advanced-ai-lab-1` project |
 
@@ -123,7 +123,7 @@ python experiments/task02_bert.py
 python experiments/task02_distilbert.py
 
 # Grade 5
-python experiments/grade5_comparison.py
+python experiments/grade5_transformers_public.py
 ```
 
 ### 5. View results
@@ -159,4 +159,4 @@ All W&B runs follow the pattern `TaskXX_ModelName_DatasetSize`:
 | `task01_bilstm.py` (large) | `Task01_BiLSTM_Large` |
 | `task02_bert.py` | `Task02_BERT_Large` |
 | `task02_distilbert.py` | `Task02_DistilBERT_Large` |
-| `grade5_comparison.py` | `Grade5_BERT_Public`, `Grade5_DistilBERT_Public` |
+| `grade5_transformers_public.py` | `Grade5_BERT_Public`, `Grade5_DistilBERT_Public` |

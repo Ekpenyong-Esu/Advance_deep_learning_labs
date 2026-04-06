@@ -38,7 +38,6 @@ import wandb
 
 from training.optimizer  import build_optimizer
 from training.engine     import train_one_epoch, evaluate
-from transformers import get_linear_schedule_with_warmup
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -86,9 +85,8 @@ def train_model(
 
     # ── Optional LR scheduler (linear warmup → decay, for Transformers) ── #
     scheduler = None
-    
     if config.get("use_scheduler", False):
-        
+        from transformers import get_linear_schedule_with_warmup
         total_steps  = len(train_loader) * epochs
         warmup_steps = int(config.get("warmup_ratio", 0.1) * total_steps)
         scheduler    = get_linear_schedule_with_warmup(
@@ -97,7 +95,7 @@ def train_model(
             num_training_steps=total_steps,
         )
 
-    wandb.init(project=project, name=experiment_name, config=config, reinit=True)
+    wandb.init(project=project, name=experiment_name, config=config, resume="allow")
 
     # ── Experiment header ────────────────────────────────────────────────── #
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -110,6 +108,7 @@ def train_model(
     )
     print(f"  Optimiser   : {config.get('optimizer')}  lr={config.get('learning_rate')}")
     print(f"  Epochs      : {epochs}")
+    print(f"  Patience    : {config.get('early_stopping_patience', None)}")
     print(f"  Trainable   : {trainable:,} parameters")
     print(f"  Split       : 70% train / 15% val / 15% test")
     print(f"  W&B project : {project}  (view at https://wandb.ai)")
@@ -117,6 +116,8 @@ def train_model(
 
     best_val_accuracy = 0.0
     best_model_state  = None
+    patience          = config.get("early_stopping_patience", None)
+    epochs_no_improve = 0
 
     # ── Train + validate ─────────────────────────────────────────────────── #
     for epoch in range(epochs):
@@ -150,6 +151,13 @@ def train_model(
         if val_acc > best_val_accuracy:
             best_val_accuracy = val_acc
             best_model_state  = copy.deepcopy(model.state_dict())
+            epochs_no_improve = 0
+        else:
+            epochs_no_improve += 1
+
+        if patience is not None and epochs_no_improve >= patience:
+            print(f"  Early stopping triggered (no improvement for {patience} epochs).")
+            break
 
     # ── Final test — best checkpoint only ───────────────────────────────── #
     model.load_state_dict(best_model_state)
