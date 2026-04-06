@@ -93,7 +93,7 @@ def get_ann_loaders(dataset: str = "small", batch_size: int = config.BATCH_SIZE)
     vectorizer = TfidfVectorizer(
         analyzer="word",
         ngram_range=(1, 2),                       # unigrams + bigrams
-        max_features=config.TFIDF_MAX_FEATURES,
+        max_features=config.TFIDF_MAX_FEATURES[dataset],
         min_df=min_df,                                 # drop terms seen in fewer than 3 docs (noise filter)
         max_df=0.5,                               # drop terms in more than 50% of docs (too common)
         use_idf=True,

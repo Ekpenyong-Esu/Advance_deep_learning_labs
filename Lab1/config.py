@@ -25,7 +25,7 @@ PUBLIC_DATASET_NAME = "amazon_polarity"  # Hugging Face dataset identifier (~3.6
 # Cap training samples from the public dataset for practical training speed.
 # The full dataset is still downloaded (~1 GB), satisfying the Grade-5 requirement.
 # Set to None to use the entire dataset.
-PUBLIC_MAX_SAMPLES  = 100_000
+PUBLIC_MAX_SAMPLES  = None
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Weights & Biases project name
@@ -51,7 +51,12 @@ VAL_RATIO    = 0.15
 # ─────────────────────────────────────────────────────────────────────────────
 # Text preprocessing settings
 # ─────────────────────────────────────────────────────────────────────────────
-TFIDF_MAX_FEATURES  = 8_000   # TF-IDF vocabulary cap (used by the Simple ANN)
+TFIDF_MAX_FEATURES = {
+    "small":  5_000,   # 1 K samples  — small vocab avoids memorisation
+    "large":  15_000,  # 25 K samples  — more features exploit richer data
+    "public": 30_000,  # 100 K+ samples — large vocab for scale
+}
+
 LSTM_MAX_VOCAB      = 30_000   # Word embedding vocabulary cap (used by the BiLSTM)
 LSTM_MAX_LEN        = 256      # Max tokens per sentence for the BiLSTM
 TRANSFORMER_MAX_LEN = 128      # Max tokens per sentence for BERT / DistilBERT
@@ -70,7 +75,7 @@ ANN_SMALL_CONFIG = {
     "batch_size":    16,
     "dropout":       0.5,      # was 0.1 — crank dropout back up hard
     "weight_decay":  1e-2,     # was 1e-5 — much stronger L2
-    "early_stopping_patience": 5,
+    "early_stopping_patience": 3,
     "use_scheduler": True,
     "warmup_ratio":  0.1,
 }
@@ -82,7 +87,7 @@ ANN_LARGE_CONFIG = {
     "epochs":        20,
     "batch_size":    64,
     "dropout":       0.5,
-    "weight_decay":  5e-3,
+    "weight_decay":  3e-3,
     "early_stopping_patience": 2,
     "warmup_ratio":  0.05,
 }
@@ -95,7 +100,8 @@ ANN_PUBLIC_CONFIG = {
     "batch_size":    128,
     "dropout":       0.5,
     "weight_decay":  5e-3,
-    "early_stopping_patience": 3,
+    "early_stopping_patience": 2,
+    "use_scheduler": True,   # ← add this
     "warmup_ratio":  0.05,
 }
 
