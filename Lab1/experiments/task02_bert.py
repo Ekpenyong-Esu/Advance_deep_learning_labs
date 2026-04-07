@@ -37,6 +37,11 @@ from utils.helpers          import count_parameters, save_checkpoint
 # ─────────────────────────────────────────────────────────────────────────────
 EXPERIMENT_NAME = "Task02_BERT_Large"
 
+experiment_config = {
+    **config.BERT_LARGE_CONFIG,
+    "device": config.DEVICE,
+}
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Main
@@ -49,17 +54,19 @@ def main(dataset: str | None = None) -> dict:
     Parameters
     ----------
     dataset : "small" | "large" | "public" | None
-        Overrides the dataset from BERT_CONFIG when provided.
+        Which dataset config to use: small → BERT_SMALL_CONFIG, large → BERT_LARGE_CONFIG, public → BERT_PUBLIC_CONFIG.
 
     Returns
     -------
     dict with keys: best_val_accuracy, test_accuracy, test_f1
     """
-    exp_cfg  = {**config.BERT_CONFIG, "device": config.DEVICE}
-    if dataset is not None:
-        exp_cfg["dataset"] = dataset
-
-    chosen_dataset = exp_cfg["dataset"]
+    dataset_configs = {
+        "small":  config.BERT_SMALL_CONFIG,
+        "large":  config.BERT_LARGE_CONFIG,
+        "public": config.BERT_PUBLIC_CONFIG,
+    }
+    chosen_dataset = dataset if dataset is not None else config.BERT_LARGE_CONFIG["dataset"]
+    exp_cfg  = {**dataset_configs[chosen_dataset], "device": config.DEVICE}
     exp_name       = f"Task02_BERT_{chosen_dataset.capitalize()}"
     model_name     = exp_cfg["model_name"]
 

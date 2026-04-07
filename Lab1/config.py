@@ -110,18 +110,18 @@ ANN_PUBLIC_CONFIG = {
 # ─────────────────────────────────────────────────────────────────────────────
 BILSTM_SMALL_CONFIG = {
     "dataset":       "small",
-    "learning_rate": 0.001,
+    "learning_rate": 0.003,
     "optimizer":     "Adam",
     "epochs":        50,
-    "batch_size":    16,
-    "embed_dim":     64,
-    "hidden_dim":    128,
+    "batch_size":    32,
+    "embed_dim":     32,
+    "hidden_dim":    64,
     "num_layers":    1,
     "dropout":       0.5,
-    "weight_decay":  1e-3,
-    "grad_clip":     1.0,   # prevent exploding gradients in LSTM
-    "early_stopping_patience": 5,
-    "use_scheduler": True,    # add this
+    "weight_decay":  1e-4,
+    "grad_clip":     0.25,  # much tighter — prevent the epoch-13 style spike
+    "early_stopping_patience": 7,
+    "use_scheduler": True,
     "warmup_ratio":  0.1,
 }
 
@@ -129,15 +129,15 @@ BILSTM_LARGE_CONFIG = {
     "dataset":       "large",
     "learning_rate": 0.001,
     "optimizer":     "Adam",
-    "epochs":        20,
+    "epochs":        50,
     "batch_size":    64,
     "embed_dim":     128,
     "hidden_dim":    256,
     "num_layers":    2,
     "dropout":       0.5,
-    "weight_decay":  1e-4,
+    "weight_decay":  2e-4,
     "grad_clip":     1.0,   # prevent exploding gradients in LSTM
-    "early_stopping_patience": 3,
+    "early_stopping_patience": 5,
     "use_scheduler": True,    
     "warmup_ratio":  0.1,
 }
@@ -162,66 +162,93 @@ BILSTM_PUBLIC_CONFIG = {
 # ─────────────────────────────────────────────────────────────────────────────
 # Task 1.2 — BERT (bert-base-uncased fine-tuned for sentiment)
 # ─────────────────────────────────────────────────────────────────────────────
-BERT_CONFIG = {
+BERT_SMALL_CONFIG = {
     "model_name":    "bert-base-uncased",
-    "dataset":       "large",           # train on the 25 K Amazon reviews
-    "learning_rate": 2e-5,
-    "optimizer":     "AdamW",           # decoupled weight decay (critical for transformers)
-    "epochs":        10,
-    "batch_size":    16,                # BERT is large — keep batch small
-    "max_len":       128,
-    "weight_decay":  0.01,
-    "use_scheduler": True,             # linear warmup + decay
-    "warmup_ratio":  0.1,              # 10% of steps used for warmup
-    "early_stopping_patience": 3,      # stop if val_loss doesn't improve for 3 epochs
-}
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Task 1.2 — DistilBERT (distilbert-base-uncased, 40% smaller than BERT)
-# Provides the second transformer model required for Grade 5.
-# ─────────────────────────────────────────────────────────────────────────────
-DISTILBERT_CONFIG = {
-    "model_name":    "distilbert-base-uncased",
-    "dataset":       "large",
-    "learning_rate": 2e-5,
-    "optimizer":     "AdamW",           # decoupled weight decay (critical for transformers)
-    "epochs":        10,
-    "batch_size":    32,
-    "max_len":       128,
-    "weight_decay":  0.01,
-    "use_scheduler": True,             # linear warmup + decay
-    "warmup_ratio":  0.1,
-    "early_stopping_patience": 3,      # stop if val_loss doesn't improve for 3 epochs
-}
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Grade 5 — Transformers fine-tuned on the PUBLIC large dataset
-# Both models train on the same data for a direct head-to-head comparison.
-# ─────────────────────────────────────────────────────────────────────────────
-BERT_PUBLIC_CONFIG = {
-    "model_name":    "bert-base-uncased",
-    "dataset":       "public",
-    "learning_rate": 2e-5,
+    "dataset":       "small",
+    "learning_rate": 1e-5,     # gentler — only ~44 train steps/epoch at batch 8
     "optimizer":     "AdamW",
-    "epochs":        5,
+    "epochs":        15,       # more epochs to compensate for fewer samples
+    "batch_size":    8,        # small batch → more gradient updates per epoch
+    "max_len":       128,
+    "weight_decay":  0.01,
+    "use_scheduler": True,
+    "warmup_ratio":  0.2,      # higher — fewer total steps need proportionally more warmup
+    "early_stopping_patience": 5,
+}
+
+BERT_LARGE_CONFIG = {
+    "model_name":    "bert-base-uncased",
+    "dataset":       "large",
+    "learning_rate": 2e-5,     # standard BERT fine-tune LR
+    "optimizer":     "AdamW",
+    "epochs":        5,        # 25 K samples — convergence is fast
     "batch_size":    16,
     "max_len":       128,
     "weight_decay":  0.01,
     "use_scheduler": True,
     "warmup_ratio":  0.1,
+    "early_stopping_patience": 3,
+}
+
+BERT_PUBLIC_CONFIG = {
+    "model_name":    "bert-base-uncased",
+    "dataset":       "public",
+    "learning_rate": 3e-5,     # slightly higher — more data makes each step more reliable
+    "optimizer":     "AdamW",
+    "epochs":        3,        # large dataset converges quickly; fewer epochs needed
+    "batch_size":    32,       # larger batch for throughput on 100 K+ samples
+    "max_len":       128,
+    "weight_decay":  0.01,
+    "use_scheduler": True,
+    "warmup_ratio":  0.05,     # minimal warmup — many total steps available
     "early_stopping_patience": 2,
+}
+
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Task 1.2 — DistilBERT (distilbert-base-uncased, 40% smaller than BERT)
+# ─────────────────────────────────────────────────────────────────────────────
+DISTILBERT_SMALL_CONFIG = {
+    "model_name":    "distilbert-base-uncased",
+    "dataset":       "small",
+    "learning_rate": 2e-5,     # gentler — only ~44 train steps/epoch at batch 8
+    "optimizer":     "AdamW",
+    "epochs":        15,       # more epochs to compensate for fewer samples
+    "batch_size":    8,        # small batch → more gradient updates per epoch
+    "max_len":       128,
+    "weight_decay":  0.01,
+    "use_scheduler": True,
+    "warmup_ratio":  0.2,      # higher — fewer total steps need proportionally more warmup
+    "early_stopping_patience": 5,
+}
+
+DISTILBERT_LARGE_CONFIG = {
+    "model_name":    "distilbert-base-uncased",
+    "dataset":       "large",
+    "learning_rate": 2e-5,     # standard DistilBERT fine-tune LR
+    "optimizer":     "AdamW",
+    "epochs":        5,        # 25 K samples — convergence is fast
+    "batch_size":    32,       # DistilBERT is lighter — can afford double BERT batch size
+    "max_len":       128,
+    "weight_decay":  0.01,
+    "use_scheduler": True,
+    "warmup_ratio":  0.1,
+    "early_stopping_patience": 3,
 }
 
 DISTILBERT_PUBLIC_CONFIG = {
     "model_name":    "distilbert-base-uncased",
     "dataset":       "public",
-    "learning_rate": 2e-5,
+    "learning_rate": 3e-5,     # slightly higher — more data makes each step more reliable
     "optimizer":     "AdamW",
-    "epochs":        5,
-    "batch_size":    32,
+    "epochs":        3,        # large dataset converges quickly; fewer epochs needed
+    "batch_size":    64,       # DistilBERT's speed advantage pays off at scale
     "max_len":       128,
     "weight_decay":  0.01,
     "use_scheduler": True,
-    "warmup_ratio":  0.1,
+    "warmup_ratio":  0.05,     # minimal warmup — many total steps available
     "early_stopping_patience": 2,
 }
+
+

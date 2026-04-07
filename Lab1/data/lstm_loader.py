@@ -52,7 +52,9 @@ class _Vocabulary:
 
     def build(self, train_texts: list) -> None:
         """Fit on training texts ONLY to prevent information leakage."""
+        
         counter = Counter()
+        
         for text in train_texts:
             counter.update(text.split())
 
@@ -63,7 +65,9 @@ class _Vocabulary:
 
     def encode(self, text: str, max_len: int) -> list:
         """Convert a cleaned text string into a padded list of integer indices."""
+        
         tokens = text.split()[:max_len]
+        
         ids    = [self.word2idx.get(t, self.UNK_IDX) for t in tokens]
         # Right-pad to max_len with the PAD index
         return ids + [self.PAD_IDX] * (max_len - len(ids))
@@ -119,18 +123,25 @@ def get_lstm_loaders(
         vocab_size is required to create the Embedding layer in BiLSTMSentiment.
     """
     print(f"\nLoading BiLSTM data  [{dataset} dataset] …")
+    
     texts, labels = _load_dataset(dataset)
+    
     tr_t, va_t, te_t, tr_l, va_l, te_l = _split(texts, labels)
 
     print("  Preprocessing text (classical) …")
+    
     tr_t = batch_preprocess(tr_t, mode="classical")
     va_t = batch_preprocess(va_t, mode="classical")
     te_t = batch_preprocess(te_t, mode="classical")
 
     print("  Building vocabulary from training split only …")
+    
     vocab = _Vocabulary(max_size=max_vocab)
+    
     vocab.build(tr_t)
+    
     vocab_size = vocab.size
+    
     print(f"  Vocabulary size: {vocab_size:,} tokens (max {max_vocab:,})")
     print(f"  Split: {len(tr_l):,} train / {len(va_l):,} val / {len(te_l):,} test")
 

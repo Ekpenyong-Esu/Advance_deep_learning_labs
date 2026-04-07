@@ -94,13 +94,11 @@ def _run_ann() -> dict:
         dataset=COMPARISON_DATASET,
         batch_size=config.ANN_LARGE_CONFIG["batch_size"],
     )
-    
     model = build_ann(
         dataset=COMPARISON_DATASET,
         vocab_size=vocab_size,
         dropout=config.ANN_LARGE_CONFIG.get("dropout", 0.5),
     )
-
     exp_cfg = {**config.ANN_LARGE_CONFIG, "device": config.DEVICE}
 
     results = train_model(
@@ -158,15 +156,15 @@ def _run_bert() -> dict:
     print("  [3/3]  BERT-base-uncased  (pre-trained transformer)")
     print("─" * 55)
 
-    model_name = config.BERT_CONFIG["model_name"]
+    model_name = config.BERT_LARGE_CONFIG["model_name"]
     train_loader, val_loader, test_loader = get_transformer_loaders(
         model_name=model_name,
         dataset=COMPARISON_DATASET,
-        batch_size=config.BERT_CONFIG["batch_size"],
-        max_len=config.BERT_CONFIG.get("max_len", config.TRANSFORMER_MAX_LEN),
+        batch_size=config.BERT_LARGE_CONFIG["batch_size"],
+        max_len=config.BERT_LARGE_CONFIG.get("max_len", config.TRANSFORMER_MAX_LEN),
     )
     model   = BertSentiment(model_name=model_name)
-    exp_cfg = {**config.BERT_CONFIG, "device": config.DEVICE}
+    exp_cfg = {**config.BERT_LARGE_CONFIG, "device": config.DEVICE}
 
     results = train_model(
         model           = model,

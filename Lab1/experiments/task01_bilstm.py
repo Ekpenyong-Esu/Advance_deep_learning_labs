@@ -40,7 +40,9 @@ from utils.helpers         import count_parameters, save_checkpoint
 
 def _run(dataset: str, exp_config: dict, experiment_name: str) -> dict:
     """Load data, build model, train, and return results."""
+    
     print(f"\nDevice: {config.DEVICE}")
+    
     if config.DEVICE.type == "cuda":
         print(f"GPU   : {torch.cuda.get_device_name(0)}")
 
@@ -54,6 +56,7 @@ def _run(dataset: str, exp_config: dict, experiment_name: str) -> dict:
 
     # ── Step 2: Build model ────────────────────────────────────────────── #
     print(f"\nBuilding BiLSTMSentiment  (vocab_size={vocab_size:,}) …")
+    
     model = BiLSTMSentiment(
         vocab_size=vocab_size,
         embed_dim=exp_config.get("embed_dim", 128),
@@ -114,6 +117,7 @@ def main(dataset: str = "small") -> dict:
         raise ValueError(f"Unknown dataset '{dataset}'. Choose 'small', 'large', or 'public'.")
 
     exp_cfg  = {**dataset_configs[dataset], "device": config.DEVICE}
+    
     exp_name = f"Task01_BiLSTM_{dataset.capitalize()}"
 
     return _run(dataset=dataset, exp_config=exp_cfg, experiment_name=exp_name)
