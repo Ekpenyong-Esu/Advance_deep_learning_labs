@@ -42,11 +42,6 @@ from utils.helpers          import count_parameters, save_checkpoint
 # ─────────────────────────────────────────────────────────────────────────────
 EXPERIMENT_NAME = "Task02_DistilBERT_Large"
 
-experiment_config = {
-    **config.DISTILBERT_CONFIG,
-    "device": config.DEVICE,
-}
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Main

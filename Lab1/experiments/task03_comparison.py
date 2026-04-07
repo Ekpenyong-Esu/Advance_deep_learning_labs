@@ -44,7 +44,7 @@ from data.ann_loader         import get_ann_loaders
 from data.lstm_loader        import get_lstm_loaders
 from data.transformer_loader import get_transformer_loaders
 from data.base_loader        import get_raw_splits
-from models.ann_model       import SimpleANN
+from models.ann_model       import build_ann
 from models.lstm_model      import BiLSTMSentiment
 from models.bert_model      import BertSentiment, DistilBertSentiment
 from training.trainer       import train_model
@@ -94,10 +94,13 @@ def _run_ann() -> dict:
         dataset=COMPARISON_DATASET,
         batch_size=config.ANN_LARGE_CONFIG["batch_size"],
     )
-    model = SimpleANN(
+    
+    model = build_ann(
+        dataset=COMPARISON_DATASET,
         vocab_size=vocab_size,
-        dropout=config.ANN_LARGE_CONFIG.get("dropout", 0.3),
+        dropout=config.ANN_LARGE_CONFIG.get("dropout", 0.5),
     )
+
     exp_cfg = {**config.ANN_LARGE_CONFIG, "device": config.DEVICE}
 
     results = train_model(

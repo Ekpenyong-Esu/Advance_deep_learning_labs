@@ -37,11 +37,6 @@ from utils.helpers          import count_parameters, save_checkpoint
 # ─────────────────────────────────────────────────────────────────────────────
 EXPERIMENT_NAME = "Task02_BERT_Large"
 
-experiment_config = {
-    **config.BERT_CONFIG,
-    "device": config.DEVICE,
-}
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Main

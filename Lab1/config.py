@@ -112,15 +112,17 @@ BILSTM_SMALL_CONFIG = {
     "dataset":       "small",
     "learning_rate": 0.001,
     "optimizer":     "Adam",
-    "epochs":        20,
-    "batch_size":    64,
-    "embed_dim":     128,
-    "hidden_dim":    256,
-    "num_layers":    2,
+    "epochs":        50,
+    "batch_size":    16,
+    "embed_dim":     64,
+    "hidden_dim":    128,
+    "num_layers":    1,
     "dropout":       0.5,
-    "weight_decay":  1e-4,
+    "weight_decay":  1e-3,
     "grad_clip":     1.0,   # prevent exploding gradients in LSTM
     "early_stopping_patience": 5,
+    "use_scheduler": True,    # add this
+    "warmup_ratio":  0.1,
 }
 
 BILSTM_LARGE_CONFIG = {
@@ -135,7 +137,9 @@ BILSTM_LARGE_CONFIG = {
     "dropout":       0.5,
     "weight_decay":  1e-4,
     "grad_clip":     1.0,   # prevent exploding gradients in LSTM
-    "early_stopping_patience": 5,
+    "early_stopping_patience": 3,
+    "use_scheduler": True,    
+    "warmup_ratio":  0.1,
 }
 
 BILSTM_PUBLIC_CONFIG = {
@@ -151,6 +155,8 @@ BILSTM_PUBLIC_CONFIG = {
     "weight_decay":  1e-4,
     "grad_clip":     1.0,   # prevent exploding gradients in LSTM
     "early_stopping_patience": 3,
+    "use_scheduler": True,    # add this
+    "warmup_ratio":  0.1,
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
