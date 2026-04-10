@@ -76,8 +76,12 @@ def _load_public(max_samples: int | None = None):
     if max_samples is not None and max_samples < len(ds):
         ds = ds.select(range(max_samples))
 
-    texts  = [f"{row['title']} {row['content']}" for row in ds]
-    labels = [int(row["label"]) for row in ds]
+    # Column access reads the entire Arrow column at once — much faster than
+    # row-by-row iteration over millions of examples.
+    titles   = ds["title"]
+    contents = ds["content"]
+    texts  = [f"{t} {c}" for t, c in zip(titles, contents)]
+    labels = list(ds["label"])
 
     print(f"  Loaded {len(texts):,} examples from '{config.PUBLIC_DATASET_NAME}'")
     return texts, labels

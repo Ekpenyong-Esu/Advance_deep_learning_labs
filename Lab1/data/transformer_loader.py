@@ -36,22 +36,30 @@ from data.base_loader import _load_dataset, _split
 
 class _TransformerDataset(Dataset):
     """
-    Stores pre-tokenised Hugging Face inputs.
+    Tokenises on-the-fly in __getitem__ so no giant tensor is ever built in RAM.
 
     Each item is a 3-tuple: (input_ids, attention_mask, label).
     This format is handled transparently by the shared trainer.
     """
 
-    def __init__(self, encodings: dict, labels: list):
-        self.input_ids      = encodings["input_ids"]       # (N, max_len) LongTensor
-        self.attention_mask = encodings["attention_mask"]  # (N, max_len) LongTensor
-        self.labels = torch.tensor(labels, dtype=torch.long)
+    def __init__(self, texts: list, labels: list, tokenizer, max_len: int):
+        self.texts     = texts
+        self.labels    = torch.tensor(labels, dtype=torch.long)
+        self.tokenizer = tokenizer
+        self.max_len   = max_len
 
     def __len__(self) -> int:
         return len(self.labels)
 
     def __getitem__(self, idx):
-        return self.input_ids[idx], self.attention_mask[idx], self.labels[idx]
+        enc = self.tokenizer(
+            self.texts[idx],
+            max_length=self.max_len,
+            padding="max_length",
+            truncation=True,
+            return_tensors="pt",
+        )
+        return enc["input_ids"].squeeze(0), enc["attention_mask"].squeeze(0), self.labels[idx]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -88,34 +96,22 @@ def get_transformer_loaders(
     va_t = batch_preprocess(va_t, mode="transformer")
     te_t = batch_preprocess(te_t, mode="transformer")
 
-    print(f"  Tokenising with '{model_name}' (max_len={max_len}) …")
+    print(f"  Loading tokeniser '{model_name}' (max_len={max_len}) …")
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-    def _tokenize(text_list: list) -> dict:
-        return tokenizer(
-            text_list,
-            max_length=max_len,
-            padding="max_length",
-            truncation=True,
-            return_tensors="pt",
-        )
-
-    tr_enc = _tokenize(tr_t)
-    va_enc = _tokenize(va_t)
-    te_enc = _tokenize(te_t)
-
     print(f"  Split: {len(tr_l):,} train / {len(va_l):,} val / {len(te_l):,} test")
+    print("  Tokenisation deferred to DataLoader (on-the-fly, no RAM pre-allocation)")
 
     train_loader = DataLoader(
-        _TransformerDataset(tr_enc, tr_l),
+        _TransformerDataset(tr_t, tr_l, tokenizer, max_len),
         batch_size=batch_size, shuffle=True,  num_workers=config.NUM_WORKERS,
     )
     val_loader = DataLoader(
-        _TransformerDataset(va_enc, va_l),
+        _TransformerDataset(va_t, va_l, tokenizer, max_len),
         batch_size=batch_size, shuffle=False, num_workers=config.NUM_WORKERS,
     )
     test_loader = DataLoader(
-        _TransformerDataset(te_enc, te_l),
+        _TransformerDataset(te_t, te_l, tokenizer, max_len),
         batch_size=batch_size, shuffle=False, num_workers=config.NUM_WORKERS,
     )
     return train_loader, val_loader, test_loader
