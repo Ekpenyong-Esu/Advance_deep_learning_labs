@@ -120,10 +120,10 @@ DIFFUSION_CONFIG = {
     "beta_start":   1e-4,
     "beta_end":     0.02,
     "lr":           2e-4,
-    "batch_size":   64,
-    "epochs":       50,
+    "batch_size":   128,   # ← increased from 64
+    "epochs":       500,
     "num_classes":  10,
-    "t_emb_dim":    128,    # sinusoidal timestep embedding dimension
-    "h_dim":        512,    # denoiser hidden width
-    "target_digit": 3,      # digit to generate during inference
+    "t_emb_dim":    256,   # ← doubled from 128
+    "h_dim":        1024,  # ← doubled from 512
+    "target_digit": 3,
 }
