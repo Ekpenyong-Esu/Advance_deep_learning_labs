@@ -15,6 +15,7 @@ RT-DETR notes:
 - All images resized to fixed 640x640 — no padding or pixel_mask required.
 """
 
+import numpy as np
 import warnings
 from pathlib import Path
 
@@ -35,7 +36,6 @@ from .wandb_logger import finish, init_run, log, log_batch_loss, log_eval, log_e
 
 # Suppress FutureWarning noise from the image processor
 warnings.filterwarnings("ignore", category=FutureWarning)
-
 
 # Car label index in PekingU/rtdetr_r50vd's id2label (0-indexed 80-class mapping).
 # Confirmed from config.json: id2label["2"] = "car", label2id["car"] = 2.
@@ -64,13 +64,22 @@ def _to_xyxy_abs(boxes, w, h):
 # ---------------------------------------------------------------------------
 
 class NVDCocoDataset(Dataset):
-    """COCO-format NVD dataset for RT-DETR. Category IDs are remapped to 0-indexed."""
+    """COCO-format NVD dataset for RT-DETR. Category IDs are remapped to 0-indexed.
 
-    def __init__(self, coco_json_path, images_dir, processor):
-        self._coco = COCO(str(coco_json_path))
+    Parameters
+    ----------
+    augment : albumentations.Compose | None
+        Optional augmentation pipeline built with ``build_detr_pipeline``
+        (bbox_format='coco', i.e. xywh absolute).  Applied only during
+        training — pass ``None`` for validation / eval datasets.
+    """
+
+    def __init__(self, coco_json_path, images_dir, processor, augment=None):
+        self._coco      = COCO(str(coco_json_path))
         self._image_ids = list(self._coco.imgs.keys())
         self._images_dir = Path(images_dir)
-        self._processor = processor
+        self._processor  = processor
+        self._augment    = augment
         cat_ids = sorted(self._coco.getCatIds())
         self._cat_id_to_label = {cid: i for i, cid in enumerate(cat_ids)}
 
@@ -100,6 +109,28 @@ class NVDCocoDataset(Dataset):
         img_info = self._coco.imgs[img_id]
         image    = Image.open(self._images_dir / img_info["file_name"]).convert("RGB")
         anns     = self._coco.loadAnns(self._coco.getAnnIds(imgIds=img_id))
+
+        if self._augment is not None and anns:
+            # Use original ann indices as class_labels so we can recover
+            # the full annotation dict for boxes that survive min_visibility.
+            bboxes  = [ann["bbox"] for ann in anns]   # xywh absolute (COCO)
+            indices = list(range(len(anns)))
+            result  = self._augment(
+                image=np.array(image),
+                bboxes=bboxes,
+                class_labels=indices,
+            )
+            image = Image.fromarray(result["image"])
+            anns  = [
+                {**anns[orig_i], "bbox": list(aug_box),
+                 "area": aug_box[2] * aug_box[3]}
+                for aug_box, orig_i in zip(result["bboxes"], result["class_labels"])
+            ]
+        elif self._augment is not None:
+            # No annotations — still augment the image
+            result = self._augment(image=np.array(image), bboxes=[], class_labels=[])
+            image  = Image.fromarray(result["image"])
+
         encoding = self._processor(
             images=image,
             annotations={"image_id": img_id, "annotations": anns},
@@ -160,7 +191,10 @@ def _evaluate_loader(
         this COCO class index and remap them to label 0 so they align with
         NVD targets. None = no remapping (fine-tuned model already outputs 0).
     """
-    metric = MeanAveragePrecision(iou_type="bbox")
+    metric = MeanAveragePrecision(
+        iou_type="bbox",
+        max_detection_thresholds=[1, 10, 300]
+    )
     all_preds, all_targets = [], []
     model.eval()
     with torch.no_grad():
@@ -220,7 +254,7 @@ def run_zero_shot_eval(
     device_str: str = "0",
     batch_size: int = 4,
     workers: int = 4,
-    conf_thresh: float = 0.5,
+    conf_thresh: float = 0.01,
 ):
     """Evaluate COCO-pretrained RT-DETR on NVD with no fine-tuning. Returns EvalMetrics."""
     init_run(
@@ -269,6 +303,7 @@ def run_zero_shot_eval(
         fine_tuned=False,
         split=split,
     )
+    log_eval(metrics)
     log_eval_summary(metrics)
     finish()
     return metrics
@@ -278,8 +313,18 @@ def run_zero_shot_eval(
 # Training
 # ---------------------------------------------------------------------------
 
-def run_fine_tuning(config: TrainingConfig, train_json, val_json, images_dir) -> Path:
-    """Fine-tune PekingU/rtdetr_r50vd on NVD. Returns path to best checkpoint dir."""
+def run_fine_tuning(config: TrainingConfig, train_json, val_json, images_dir, aug_variant: str = "none") -> Path:
+    """Fine-tune PekingU/rtdetr_r50vd on NVD. Returns path to best checkpoint dir.
+
+    Parameters
+    ----------
+    aug_variant : {"none", "snow", "full"}
+        Snow-augmentation variant to inject into the training dataset.  Uses
+        ``build_detr_pipeline`` (coco / xywh-abs bbox format).
+        Validation dataset is never augmented.
+    """
+    from scripts.augmentations import build_detr_pipeline  # avoid circular import
+
     device = torch.device(
         f"cuda:{config.device}" if config.device.isdigit() else config.device
     )
@@ -292,8 +337,12 @@ def run_fine_tuning(config: TrainingConfig, train_json, val_json, images_dir) ->
     )
     collate = make_collate_fn(processor)
 
-    train_ds     = NVDCocoDataset(train_json, images_dir, processor)
-    val_ds       = NVDCocoDataset(val_json,   images_dir, processor)
+    aug_pipeline = build_detr_pipeline(aug_variant)
+    if aug_pipeline is not None:
+        print(f"[RT-DETR] Augmentation variant: '{aug_variant}'")
+
+    train_ds = NVDCocoDataset(train_json, images_dir, processor, augment=aug_pipeline)
+    val_ds   = NVDCocoDataset(val_json,   images_dir, processor)
     train_loader = DataLoader(
         train_ds, batch_size=config.batch, shuffle=True,
         num_workers=config.workers, collate_fn=collate,
@@ -416,7 +465,7 @@ def eval_checkpoint(
     device_str: str = "0",
     batch_size: int = 4,
     workers: int = 4,
-    conf_thresh: float = 0.5,
+    conf_thresh: float = 0.01,
 ):
     """Evaluate a saved RT-DETR checkpoint. Returns EvalMetrics."""
     run_label = Path(checkpoint_dir).name

@@ -80,12 +80,13 @@ def run_zero_shot_eval(
         fine_tuned=False,
         split=split,
     )
+    log_eval(metrics)
     log_eval_summary(metrics)
     finish()
     return metrics
 
 
-def run_fine_tuning(config: TrainingConfig) -> Path:
+def run_fine_tuning(config: TrainingConfig, aug_variant: str = "none") -> Path:
     """
     Fine-tune YOLOv9 using the supplied TrainingConfig.
 
@@ -99,6 +100,10 @@ def run_fine_tuning(config: TrainingConfig) -> Path:
     config : TrainingConfig
         ``model_name`` should be the architecture string without ``.pt``,
         e.g. ``"yolov9c"``.
+    aug_variant : str
+        One of ``"none"`` (default, ultralytics built-in augmentation),
+        ``"snow"`` (snow/fog/brightness pipeline), or
+        ``"full"`` (snow pipeline + GaussNoise + MotionBlur).
 
     Returns
     -------
@@ -125,6 +130,11 @@ def run_fine_tuning(config: TrainingConfig) -> Path:
     init_run(config.project, config.run_name, config=train_kwargs)
 
     model = YOLO(f"{config.model_name}.pt")
+
+    if aug_variant != "none":
+        from scripts.augmentations import inject_into_yolo
+        inject_into_yolo(model, aug_variant)
+
     model.train(**train_kwargs)
 
     # Expected path: {output_dir}/{run_name}/weights/best.pt

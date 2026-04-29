@@ -19,6 +19,8 @@ from torchvision.models.detection import fasterrcnn_resnet50_fpn
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.transforms.functional import to_tensor
 
+import numpy as np
+
 from .evaluator import compute_precision_recall, measure_fps, parse_map_result
 from .models import TrainingConfig
 from .wandb_logger import finish, init_run, log, log_batch_loss, log_eval, log_model
@@ -36,11 +38,19 @@ class NVDDetectionDataset(Dataset):
     Returns ``(image_tensor [C,H,W] float32 [0,1], target)`` per item.
     target has ``boxes`` (FloatTensor[N,4] XYXY abs pixels) and ``labels`` (int64).
     Labels are 1-indexed (car=1) to match torchvision conventions.
+
+    Parameters
+    ----------
+    augment : albumentations.Compose | None
+        Optional augmentation pipeline built with ``build_frcnn_pipeline``
+        (bbox_format='pascal_voc', i.e. xyxy absolute).  Applied only during
+        training — pass ``None`` for validation / eval datasets.
     """
 
-    def __init__(self, image_paths, label_paths):
-        self._images = list(image_paths)
-        self._labels = list(label_paths)
+    def __init__(self, image_paths, label_paths, augment=None):
+        self._images  = list(image_paths)
+        self._labels  = list(label_paths)
+        self._augment = augment
 
     def __len__(self):
         return len(self._images)
@@ -61,6 +71,17 @@ class NVDDetectionDataset(Dataset):
                 if x2 > x1 and y2 > y1:
                     boxes.append([x1, y1, x2, y2])
                     labels.append(1)
+
+        if self._augment is not None:
+            result = self._augment(
+                image=np.array(img),
+                bboxes=boxes,
+                class_labels=labels,
+            )
+            img    = Image.fromarray(result["image"])
+            boxes  = [list(b) for b in result["bboxes"]]
+            labels = list(result["class_labels"])
+
         return (
             to_tensor(img),
             {
@@ -156,7 +177,7 @@ def run_zero_shot_eval(
     device_str: str = "0",
     batch_size: int = 4,
     workers: int = 4,
-    conf_thresh: float = 0.5,
+    conf_thresh: float = 0.05,
 ):
     """Evaluate COCO-pretrained Faster R-CNN on NVD with no fine-tuning. Returns EvalMetrics."""
     init_run(
@@ -200,14 +221,28 @@ def run_zero_shot_eval(
 # Training
 # ---------------------------------------------------------------------------
 
-def run_fine_tuning(config: TrainingConfig, data_yaml) -> Path:
-    """Fine-tune fasterrcnn_resnet50_fpn on NVD. Returns path to best.pt."""
+def run_fine_tuning(config: TrainingConfig, data_yaml, aug_variant: str = "none") -> Path:
+    """Fine-tune fasterrcnn_resnet50_fpn on NVD. Returns path to best.pt.
+
+    Parameters
+    ----------
+    aug_variant : {"none", "snow", "full"}
+        Snow-augmentation variant to inject into the training dataset.  Uses
+        ``build_frcnn_pipeline`` (pascal_voc / xyxy-abs bbox format).
+        Validation dataset is never augmented.
+    """
+    from scripts.augmentations import build_frcnn_pipeline  # avoid circular import
+
     device = torch.device(
         f"cuda:{config.device}" if config.device.isdigit() else config.device
     )
 
-    train_ds     = NVDDetectionDataset(*_load_split_paths(data_yaml, "train"))
-    val_ds       = NVDDetectionDataset(*_load_split_paths(data_yaml, "val"))
+    aug_pipeline = build_frcnn_pipeline(aug_variant)
+    if aug_pipeline is not None:
+        print(f"[FRCNN] Augmentation variant: '{aug_variant}'")
+
+    train_ds = NVDDetectionDataset(*_load_split_paths(data_yaml, "train"), augment=aug_pipeline)
+    val_ds   = NVDDetectionDataset(*_load_split_paths(data_yaml, "val"))
     train_loader = DataLoader(
         train_ds, batch_size=config.batch, shuffle=True,
         num_workers=config.workers, collate_fn=_collate,
@@ -290,7 +325,7 @@ def eval_checkpoint(
     device_str: str = "0",
     batch_size: int = 4,
     workers: int = 4,
-    conf_thresh: float = 0.5,
+    conf_thresh: float = 0.05,
 ):
     """Evaluate a saved Faster R-CNN checkpoint. Returns EvalMetrics."""
     run_label = Path(weights).stem
