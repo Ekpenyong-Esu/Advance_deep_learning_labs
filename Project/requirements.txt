@@ -1,0 +1,44 @@
+# ---------------------------------------------------------------
+# PyTorch — CUDA 12.4 build
+# GPU: NVIDIA RTX A1000 6GB Laptop (driver 551.86, max CUDA 12.4)
+# The --extra-index-url tells pip to fetch cu124 wheels from PyTorch's index.
+# Run normally: pip install -r requirements.txt
+# ---------------------------------------------------------------
+--extra-index-url https://download.pytorch.org/whl/cu124
+torch>=2.3.0
+torchvision>=0.18.0
+torchaudio>=2.3.0
+
+# YOLOv9 via ultralytics (Option A — chosen implementation)
+ultralytics>=8.2.0
+
+# HuggingFace Transformers — DETR and RT-DETR
+transformers>=4.46.0
+accelerate>=0.29.0
+torchmetrics>=1.4.0
+
+# Augmentations
+albumentations>=1.4.0
+
+# Image / video processing
+opencv-python>=4.9.0
+
+# Data science & plotting
+matplotlib>=3.8.0
+pandas>=2.2.0
+seaborn>=0.13.0
+
+# Progress bars
+tqdm>=4.66.0
+
+# Experiment tracking
+wandb>=0.17.0
+
+# Utilities
+Pillow>=10.3.0
+PyYAML>=6.0.1
+scipy>=1.13.0
+pycocotools>=2.0.11
+
+# DETR backbone support
+timm>=0.9.0

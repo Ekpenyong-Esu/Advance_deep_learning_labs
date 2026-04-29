@@ -1,0 +1,19 @@
+# configs/data.yaml
+# ------------------
+# YOLO dataset configuration for the Nordic Vehicle Dataset (NVD).
+#
+# Pass this file directly to ultralytics — no conversion step needed.
+# The NVD dataset is already in YOLO format; splits are defined by
+# the .txt files that ship with the download.
+#
+#   model.train(data="configs/data.yaml", ...)
+#   python scripts/inspect_dataset.py --data-yaml configs/data.yaml
+
+path: /Labs/Project/data/raw       # root of the dataset (relative to this configs/ directory)
+train: train.txt        # NVD flat layout — splits defined by .txt file lists
+val:   val.txt
+test:  test.txt
+
+nc: 1                       # VERIFIED 2026-04-18 — all 8450 label files contain only class_id=0
+names:
+  0: car                    # VERIFIED 2026-04-18 — single class, no other vehicle types in NVD

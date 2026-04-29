@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Dataset files (do not commit NVD data)
+data/raw/
+data/processed/
+*.zip
+*.tar
+*.tar.gz
+*.avi
+*.mp4
+*.mov
+
+# Model weights (upload to GitHub Release or Google Drive instead)
+*.pt
+*.pth
+*.onnx
+*.weights
+
+# Experiment outputs
+results/*.csv
+results/figures/
+wandb/
+runs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
