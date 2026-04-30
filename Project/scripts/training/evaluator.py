@@ -60,11 +60,18 @@ def compute_precision_recall(preds, targets, *, iou_thresh=0.5, conf_thresh=0.5)
 
 
 def parse_map_result(metric_dict, *, precision, recall, fps, model_name, pretrain, fine_tuned, split, notes="") -> EvalMetrics:
-    """Build EvalMetrics from a torchmetrics MeanAveragePrecision.compute() dict."""
+    """Build EvalMetrics from a torchmetrics MeanAveragePrecision.compute() dict.
+
+    torchmetrics returns -1.0 as a sentinel when a metric cannot be computed
+    (e.g. no true positives).  Clamp to 0.0 so EvalMetrics validation passes.
+    """
+    def _safe(val: float) -> float:
+        return max(0.0, float(val))
+
     return EvalMetrics(
         model=model_name, pretrain=pretrain, fine_tuned=fine_tuned, split=split,
-        map50=float(metric_dict.get("map_50", 0.0)),
-        map50_95=float(metric_dict.get("map", 0.0)),
+        map50=_safe(metric_dict.get("map_50", 0.0)),
+        map50_95=_safe(metric_dict.get("map", 0.0)),
         precision=precision, recall=recall, fps=fps, notes=notes,
     )
 

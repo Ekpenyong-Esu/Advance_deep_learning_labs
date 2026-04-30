@@ -191,10 +191,7 @@ def _evaluate_loader(
         this COCO class index and remap them to label 0 so they align with
         NVD targets. None = no remapping (fine-tuned model already outputs 0).
     """
-    metric = MeanAveragePrecision(
-        iou_type="bbox",
-        max_detection_thresholds=[1, 10, 300]
-    )
+    metric = MeanAveragePrecision(iou_type="bbox")
     all_preds, all_targets = [], []
     model.eval()
     with torch.no_grad():
@@ -254,7 +251,7 @@ def run_zero_shot_eval(
     device_str: str = "0",
     batch_size: int = 4,
     workers: int = 4,
-    conf_thresh: float = 0.01,
+    conf_thresh: float = 0.3,
 ):
     """Evaluate COCO-pretrained RT-DETR on NVD with no fine-tuning. Returns EvalMetrics."""
     init_run(
@@ -465,7 +462,7 @@ def eval_checkpoint(
     device_str: str = "0",
     batch_size: int = 4,
     workers: int = 4,
-    conf_thresh: float = 0.01,
+    conf_thresh: float = 0.3,
 ):
     """Evaluate a saved RT-DETR checkpoint. Returns EvalMetrics."""
     run_label = Path(checkpoint_dir).name

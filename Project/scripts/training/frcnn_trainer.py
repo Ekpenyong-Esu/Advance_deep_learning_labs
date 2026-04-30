@@ -213,6 +213,7 @@ def run_zero_shot_eval(
         split=split,
     )
     log_eval(metrics)
+    log_eval_summary(metrics)
     finish()
     return metrics
 
