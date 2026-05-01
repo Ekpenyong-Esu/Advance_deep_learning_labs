@@ -41,6 +41,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 # Confirmed from config.json: id2label["2"] = "car", label2id["car"] = 2.
 # Used only in zero-shot eval to filter car predictions and remap to NVD label 0.
 _COCO_CAR_LABEL = 2
+patience_counter = 0
 
 
 # ---------------------------------------------------------------------------
@@ -439,9 +440,16 @@ def run_fine_tuning(config: TrainingConfig, train_json, val_json, images_dir, au
 
         if map50 > best_map50:
             best_map50 = map50
+            patience_counter = 0
             model.save_pretrained(str(best_dir))
             processor.save_pretrained(str(best_dir))
             print(f"[RT-DETR] ✓ best={best_map50:.4f} → {best_dir}")
+        else:
+            patience_counter += 1
+            print(f"[RT-DETR] No improvement ({patience_counter}/{config.patience})")
+            if config.patience > 0 and patience_counter >= config.patience:
+                print(f"[RT-DETR] Early stopping at epoch {epoch} (patience={config.patience})")
+                break
 
     log_model(best_dir, name=f"{config.run_name}-best")
     finish()

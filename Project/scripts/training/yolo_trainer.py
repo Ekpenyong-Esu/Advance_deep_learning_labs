@@ -19,6 +19,7 @@ from ultralytics.utils import SETTINGS
 from .evaluator import parse_ultralytics_results
 from .models import EvalMetrics, TrainingConfig
 from .wandb_logger import finish, init_run, log_eval, log_eval_summary, log_model
+from scripts.augmentations import inject_into_yolo
 
 
 def _enable_ultralytics_wandb() -> None:
@@ -121,6 +122,15 @@ def run_fine_tuning(config: TrainingConfig, aug_variant: str = "none") -> Path:
         "project":  config.output_dir,  # filesystem root — controls WHERE files land
         "name":     config.run_name,    # subfolder name  — e.g. "yolov9_nvd"
         "exist_ok": True,
+        # -------------------------
+        # AUGMENTATION CONTROL
+        # -------------------------
+        "mosaic": config.mosaic,
+        "close_mosaic": config.close_mosaic,
+        # -------------------------
+        # EARLY STOPPING
+        # -------------------------
+        "patience": config.patience,
     }
     if config.freeze is not None:
         train_kwargs["freeze"] = config.freeze
@@ -132,7 +142,7 @@ def run_fine_tuning(config: TrainingConfig, aug_variant: str = "none") -> Path:
     model = YOLO(f"{config.model_name}.pt")
 
     if aug_variant != "none":
-        from scripts.augmentations import inject_into_yolo
+        
         inject_into_yolo(model, aug_variant)
 
     model.train(**train_kwargs)

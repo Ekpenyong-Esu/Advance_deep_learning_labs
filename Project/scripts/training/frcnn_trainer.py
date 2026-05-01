@@ -27,7 +27,7 @@ from .wandb_logger import finish, init_run, log, log_batch_loss, log_eval, log_m
 
 _NUM_CLASSES = 2   # 0 = background, 1 = car
 
-
+patience_counter = 0
 # ---------------------------------------------------------------------------
 # Dataset
 # ---------------------------------------------------------------------------
@@ -305,9 +305,15 @@ def run_fine_tuning(config: TrainingConfig, data_yaml, aug_variant: str = "none"
 
         if map50 > best_map50:
             best_map50 = map50
+            patience_counter = 0
             torch.save(model.state_dict(), best_pt)
             print(f"[FRCNN] ✓ best={best_map50:.4f} → {best_pt}")
-
+        else:
+            patience_counter += 1
+            print(f"[FRCNN] No improvement ({patience_counter}/{config.patience})")
+            if config.patience > 0 and patience_counter >= config.patience:
+                print(f"[FRCNN] Early stopping at epoch {epoch} (patience={config.patience})")
+                break
     log_model(best_pt, name=f"{config.run_name}-best")
     finish()
 
