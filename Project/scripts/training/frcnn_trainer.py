@@ -365,6 +365,7 @@ def eval_checkpoint(
         split=split,
     )
     log_eval(metrics)
+    log_eval_summary(metrics)
     finish()
 
     return metrics
