@@ -10,6 +10,7 @@ Label note: torchvision reserves label 0 for background; car = label 1.
 
 from pathlib import Path
 
+import numpy as np
 import torch
 import yaml
 from PIL import Image
@@ -19,15 +20,18 @@ from torchvision.models.detection import fasterrcnn_resnet50_fpn
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.transforms.functional import to_tensor
 
-import numpy as np
-
 from .evaluator import compute_precision_recall, measure_fps, parse_map_result
 from .models import TrainingConfig
-from .wandb_logger import finish, init_run, log, log_batch_loss, log_eval, log_model
+from .wandb_logger import finish, init_run, log, log_batch_loss, log_eval, log_eval_summary, log_model
 
 _NUM_CLASSES = 2   # 0 = background, 1 = car
 
-patience_counter = 0
+# Car label in torchvision's COCO 91-class pretrained model (1-indexed, 0=background).
+# Confirmed: COCO category_id=3 → torchvision label 3 = "car".
+# Used only in zero-shot eval to filter car predictions and remap to NVD label 1.
+_COCO_CAR_LABEL = 3
+
+
 # ---------------------------------------------------------------------------
 # Dataset
 # ---------------------------------------------------------------------------
@@ -123,15 +127,19 @@ def _load_split_paths(data_yaml_path, split):
     return images, labels
 
 
-def _build_model(freeze=None):
+def _build_model(freeze=None, imgsz=1024):
     """Build fasterrcnn_resnet50_fpn with a 2-class head (background + car).
 
     freeze=N mirrors YOLOv9 freeze=N semantics — freezes the first N
     named children of the ResNet backbone body.
     Faster R-CNN backbone body layers: layer0 (stem), layer1, layer2, layer3, layer4
     freeze=10 → all 5 layers frozen (capped by min).
+
+    imgsz controls GeneralizedRCNNTransform: shorter edge is scaled to imgsz,
+    longer edge is capped at imgsz (square-ish, matching DETR/YOLO behaviour).
+    Default torchvision values are min_size=800, max_size=1333.
     """
-    model   = fasterrcnn_resnet50_fpn(weights="DEFAULT")
+    model   = fasterrcnn_resnet50_fpn(weights="DEFAULT", min_size=imgsz, max_size=imgsz)
     in_feat = model.roi_heads.box_predictor.cls_score.in_features
     model.roi_heads.box_predictor = FastRCNNPredictor(in_feat, _NUM_CLASSES)
     if freeze is not None:
@@ -146,11 +154,23 @@ def _build_model(freeze=None):
     return model
 
 
-def _evaluate_loader(model, loader, device):
+def _evaluate_loader(
+    model,
+    loader,
+    device,
+    remap_label: int | None = None,
+):
     """One eval pass → (torchmetrics_result, all_preds, all_targets).
 
     Shared by both the per-epoch check in run_fine_tuning and eval_checkpoint
     so the inference loop is never duplicated.
+
+    Parameters
+    ----------
+    remap_label : int | None
+        When set (zero-shot only), keep only predictions whose label matches
+        this COCO class index and remap them to label 1 so they align with
+        NVD targets. None = no remapping (fine-tuned model already outputs 1).
     """
     metric = MeanAveragePrecision(iou_type="bbox")
     all_preds, all_targets = [], []
@@ -158,8 +178,19 @@ def _evaluate_loader(model, loader, device):
     with torch.no_grad():
         for images, targets in loader:
             images = [img.to(device) for img in images]
-            preds  = [{k: v.cpu() for k, v in p.items()} for p in model(images)]
-            tgts   = [{k: v.cpu() for k, v in t.items()} for t in targets]
+            raw    = [{k: v.cpu() for k, v in p.items()} for p in model(images)]
+            if remap_label is not None:
+                preds = []
+                for r in raw:
+                    mask = r["labels"] == remap_label
+                    preds.append({
+                        "boxes":  r["boxes"][mask],
+                        "scores": r["scores"][mask],
+                        "labels": torch.ones(mask.sum(), dtype=torch.long),
+                    })
+            else:
+                preds = raw
+            tgts = [{k: v.cpu() for k, v in t.items()} for t in targets]
             metric.update(preds, tgts)
             all_preds.extend(preds)
             all_targets.extend(tgts)
@@ -177,7 +208,7 @@ def run_zero_shot_eval(
     device_str: str = "0",
     batch_size: int = 4,
     workers: int = 4,
-    conf_thresh: float = 0.05,
+    conf_thresh: float = 0.3,
 ):
     """Evaluate COCO-pretrained Faster R-CNN on NVD with no fine-tuning. Returns EvalMetrics."""
     init_run(
@@ -188,7 +219,7 @@ def run_zero_shot_eval(
 
     device = torch.device(f"cuda:{device_str}" if device_str.isdigit() else device_str)
     # Load with original 91-class COCO head (no head replacement)
-    model  = fasterrcnn_resnet50_fpn(weights="DEFAULT").to(device)
+    model  = fasterrcnn_resnet50_fpn(weights="DEFAULT", min_size=640, max_size=640).to(device)
 
     ds     = NVDDetectionDataset(*_load_split_paths(data_yaml, split))
     loader = DataLoader(
@@ -196,7 +227,11 @@ def run_zero_shot_eval(
         num_workers=workers, collate_fn=_collate,
     )
 
-    map_result, all_preds, all_targets = _evaluate_loader(model, loader, device)
+    # Pass remap_label=_COCO_CAR_LABEL so predictions are filtered to car
+    # detections only and remapped to label 1 to match NVD targets.
+    map_result, all_preds, all_targets = _evaluate_loader(
+        model, loader, device, remap_label=_COCO_CAR_LABEL
+    )
     precision, recall = compute_precision_recall(
         all_preds, all_targets, conf_thresh=conf_thresh
     )
@@ -253,18 +288,21 @@ def run_fine_tuning(config: TrainingConfig, data_yaml, aug_variant: str = "none"
         num_workers=config.workers, collate_fn=_collate,
     )
 
-    model = _build_model(freeze=config.freeze).to(device)
+    model = _build_model(freeze=config.freeze, imgsz=config.imgsz).to(device)
     optimizer = torch.optim.SGD(
         [p for p in model.parameters() if p.requires_grad],
         lr=config.lr0, momentum=0.9, weight_decay=5e-4,
     )
-    scheduler = torch.optim.lr_scheduler.StepLR(
-        optimizer, step_size=max(1, config.epochs // 3), gamma=0.1
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=config.epochs, eta_min=config.lr0 * 0.01
     )
 
     out_dir = Path(config.output_dir) / config.run_name
     out_dir.mkdir(parents=True, exist_ok=True)
-    best_pt, best_map50 = out_dir / "best.pt", -1.0
+    best_pt = out_dir / "best.pt"
+
+    best_map50       = -1.0
+    patience_counter = 0
 
     init_run(
         config.project,
@@ -296,24 +334,30 @@ def run_fine_tuning(config: TrainingConfig, data_yaml, aug_variant: str = "none"
         scheduler.step()
 
         map_result, _, _ = _evaluate_loader(model, val_loader, device)
-        map50    = float(map_result.get("map_50", 0.0))
+        # FIX: extract and log both mAP@0.5 and mAP@0.5:0.95
+        map50   = float(map_result.get("map_50", 0.0))
+        map5095 = float(map_result.get("map",    0.0))  # torchmetrics key for mAP@0.5:0.95
         avg_loss = total_loss / len(train_loader)
 
-        print(f"[FRCNN] {epoch:>3}/{config.epochs}  loss={avg_loss:.4f}  val_mAP@0.5={map50:.4f}")
-        # FIX: use global_step instead of epoch to keep W&B steps monotonically increasing
-        log({"train/loss": avg_loss, "val/map50": map50}, step=global_step)
+        print(f"[FRCNN] {epoch:>3}/{config.epochs}  loss={avg_loss:.4f}  "
+              f"val_mAP@0.5={map50:.4f}  val_mAP@0.5:0.95={map5095:.4f}")
+        # Use global_step to keep W&B steps monotonically increasing
+        log({"train/loss": avg_loss, "val/map50": map50, "val/map50_95": map5095},
+            step=global_step)
 
         if map50 > best_map50:
-            best_map50 = map50
+            best_map50       = map50
             patience_counter = 0
             torch.save(model.state_dict(), best_pt)
             print(f"[FRCNN] ✓ best={best_map50:.4f} → {best_pt}")
         else:
             patience_counter += 1
-            print(f"[FRCNN] No improvement ({patience_counter}/{config.patience})")
-            if config.patience > 0 and patience_counter >= config.patience:
-                print(f"[FRCNN] Early stopping at epoch {epoch} (patience={config.patience})")
-                break
+            if config.patience > 0:
+                print(f"[FRCNN] No improvement ({patience_counter}/{config.patience})")
+                if patience_counter >= config.patience:
+                    print(f"[FRCNN] Early stopping at epoch {epoch} (patience={config.patience})")
+                    break
+
     log_model(best_pt, name=f"{config.run_name}-best")
     finish()
 
@@ -332,7 +376,8 @@ def eval_checkpoint(
     device_str: str = "0",
     batch_size: int = 4,
     workers: int = 4,
-    conf_thresh: float = 0.05,
+    conf_thresh: float = 0.3,
+    imgsz: int = 1024,
 ):
     """Evaluate a saved Faster R-CNN checkpoint. Returns EvalMetrics."""
     run_label = Path(weights).stem
@@ -343,7 +388,7 @@ def eval_checkpoint(
     )
 
     device = torch.device(f"cuda:{device_str}" if device_str.isdigit() else device_str)
-    model  = _build_model().to(device)
+    model  = _build_model(imgsz=imgsz).to(device)
     model.load_state_dict(
         torch.load(str(weights), map_location=device, weights_only=True)
     )

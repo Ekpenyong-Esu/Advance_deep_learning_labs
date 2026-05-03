@@ -12,13 +12,13 @@ RT-DETR notes:
 - Uses RTDetrImageProcessor (fixed-size resize, no pixel_mask needed).
 - RTDetrForObjectDetection replaces DetrForObjectDetection.
 - Backbone path for freezing: model.model.backbone.
-- All images resized to fixed 640x640 — no padding or pixel_mask required.
+- Images resized to config.imgsz × config.imgsz (square) — no padding or pixel_mask required.
 """
 
-import numpy as np
 import warnings
 from pathlib import Path
 
+import numpy as np
 import torch
 from PIL import Image
 from pycocotools.coco import COCO
@@ -41,7 +41,6 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 # Confirmed from config.json: id2label["2"] = "car", label2id["car"] = 2.
 # Used only in zero-shot eval to filter car predictions and remap to NVD label 0.
 _COCO_CAR_LABEL = 2
-patience_counter = 0
 
 
 # ---------------------------------------------------------------------------
@@ -76,8 +75,8 @@ class NVDCocoDataset(Dataset):
     """
 
     def __init__(self, coco_json_path, images_dir, processor, augment=None):
-        self._coco      = COCO(str(coco_json_path))
-        self._image_ids = list(self._coco.imgs.keys())
+        self._coco       = COCO(str(coco_json_path))
+        self._image_ids  = list(self._coco.imgs.keys())
         self._images_dir = Path(images_dir)
         self._processor  = processor
         self._augment    = augment
@@ -152,8 +151,8 @@ class NVDCocoDataset(Dataset):
 def make_collate_fn(processor):
     """Batch collate for RT-DETR.
 
-    RTDetrImageProcessor resizes every image to a fixed size (640x640), so all
-    tensors in a batch are already the same shape — no padding needed.
+    RTDetrImageProcessor resizes every image to a fixed square size (config.imgsz),
+    so all tensors in a batch are already the same shape — no padding needed.
     pixel_mask is not used by RT-DETR.
     """
     def _collate(batch):
@@ -201,9 +200,12 @@ def _evaluate_loader(
             raw_labels = batch["labels"]
             # RT-DETR does not use pixel_mask
             outputs    = model(pixel_values=pv)
-            sizes      = torch.stack([lbl["orig_size"] for lbl in raw_labels]).to(device)
+            # CORRECT — use the actual input size to the model
+            h, w = pv.shape[-2], pv.shape[-1]  # e.g. 1024x1024
+            sizes = torch.tensor([[h, w]] * len(raw_labels), device=device)
             results    = processor.post_process_object_detection(
-                outputs, threshold=threshold, target_sizes=sizes
+                outputs, threshold=threshold, target_sizes=sizes,
+                use_focal_loss=True,   # RT-DETR: sigmoid per class, no background token
             )
             preds = []
             for r in results:
@@ -253,6 +255,7 @@ def run_zero_shot_eval(
     batch_size: int = 4,
     workers: int = 4,
     conf_thresh: float = 0.3,
+    imgsz: int = 640,
 ):
     """Evaluate COCO-pretrained RT-DETR on NVD with no fine-tuning. Returns EvalMetrics."""
     init_run(
@@ -264,9 +267,9 @@ def run_zero_shot_eval(
     device    = torch.device(f"cuda:{device_str}" if device_str.isdigit() else device_str)
     processor = RTDetrImageProcessor.from_pretrained(
         model_name,
-        size={"width": 640, "height": 640},
+        size={"width": imgsz, "height": imgsz},
     )
-    # Load with the original 91-class COCO head (no num_labels override)
+    # Load with the original 80-class COCO head (no num_labels override)
     model = RTDetrForObjectDetection.from_pretrained(model_name).to(device)
 
     val_ds = NVDCocoDataset(val_json, images_dir, processor)
@@ -277,9 +280,10 @@ def run_zero_shot_eval(
 
     # Pass remap_label=_COCO_CAR_LABEL so predictions are filtered to car
     # detections only and remapped to label 0 to match NVD targets.
+    # Use default threshold=0.01 so torchmetrics receives predictions at all
+    # confidence levels — conf_thresh is only used for the P/R scalar below.
     map_result, all_preds, all_targets = _evaluate_loader(
         model, processor, loader, device,
-        threshold=conf_thresh,
         remap_label=_COCO_CAR_LABEL,
     )
     precision, recall = compute_precision_recall(
@@ -329,13 +333,14 @@ def run_fine_tuning(config: TrainingConfig, train_json, val_json, images_dir, au
 
     processor = RTDetrImageProcessor.from_pretrained(
         config.model_name,
-        size={"width": 640, "height": 640},
+        size={"width": config.imgsz, "height": config.imgsz},
         do_resize=True,
         do_normalize=True,
     )
     collate = make_collate_fn(processor)
 
     aug_pipeline = build_detr_pipeline(aug_variant)
+
     if aug_pipeline is not None:
         print(f"[RT-DETR] Augmentation variant: '{aug_variant}'")
 
@@ -393,7 +398,9 @@ def run_fine_tuning(config: TrainingConfig, train_json, val_json, images_dir, au
     out_dir  = Path(config.output_dir) / config.run_name
     best_dir = out_dir / "best_checkpoint"
     out_dir.mkdir(parents=True, exist_ok=True)
-    best_map50 = -1.0
+
+    best_map50       = -1.0
+    patience_counter = 0
 
     init_run(
         config.project,
@@ -430,26 +437,33 @@ def run_fine_tuning(config: TrainingConfig, train_json, val_json, images_dir, au
             global_step = (epoch - 1) * len(train_loader) + batch_idx
             log_batch_loss(out.loss.item(), global_step)
 
-        map_result, _, _ = _evaluate_loader(model, processor, val_loader, device)
-        map50    = float(map_result.get("map_50", 0.0))
+        map_result, _, _ = _evaluate_loader(
+            model, processor, val_loader, device, threshold=0.01
+        )
+        # FIX: extract and log both mAP@0.5 and mAP@0.5:0.95
+        map50   = float(map_result.get("map_50", 0.0))
+        map5095 = float(map_result.get("map",    0.0))  # torchmetrics key for mAP@0.5:0.95
         avg_loss = total_loss / len(train_loader)
 
-        print(f"[RT-DETR] {epoch:>3}/{config.epochs}  loss={avg_loss:.4f}  val_mAP@0.5={map50:.4f}")
+        print(f"[RT-DETR] {epoch:>3}/{config.epochs}  loss={avg_loss:.4f}  "
+              f"val_mAP@0.5={map50:.4f}  val_mAP@0.5:0.95={map5095:.4f}")
         # Use global_step to keep W&B steps monotonically increasing
-        log({"train/loss": avg_loss, "val/map50": map50}, step=global_step)
+        log({"train/loss": avg_loss, "val/map50": map50, "val/map50_95": map5095},
+            step=global_step)
 
         if map50 > best_map50:
-            best_map50 = map50
+            best_map50       = map50
             patience_counter = 0
             model.save_pretrained(str(best_dir))
             processor.save_pretrained(str(best_dir))
             print(f"[RT-DETR] ✓ best={best_map50:.4f} → {best_dir}")
         else:
             patience_counter += 1
-            print(f"[RT-DETR] No improvement ({patience_counter}/{config.patience})")
-            if config.patience > 0 and patience_counter >= config.patience:
-                print(f"[RT-DETR] Early stopping at epoch {epoch} (patience={config.patience})")
-                break
+            if config.patience > 0:
+                print(f"[RT-DETR] No improvement ({patience_counter}/{config.patience})")
+                if patience_counter >= config.patience:
+                    print(f"[RT-DETR] Early stopping at epoch {epoch} (patience={config.patience})")
+                    break
 
     log_model(best_dir, name=f"{config.run_name}-best")
     finish()
@@ -466,13 +480,24 @@ def eval_checkpoint(
     val_json,
     images_dir,
     *,
+    model_name: str = "PekingU/rtdetr_r50vd",
     split: str = "val",
     device_str: str = "0",
     batch_size: int = 4,
     workers: int = 4,
     conf_thresh: float = 0.3,
+    imgsz: int = 1024,
 ):
-    """Evaluate a saved RT-DETR checkpoint. Returns EvalMetrics."""
+    """Evaluate a saved RT-DETR checkpoint. Returns EvalMetrics.
+
+    Parameters
+    ----------
+    model_name : str
+        Original HuggingFace model ID used for fine-tuning.  The processor is
+        always loaded from here (not from the checkpoint) so preprocessing is
+        identical to what was used during training.  Only the model *weights*
+        come from ``checkpoint_dir``.
+    """
     run_label = Path(checkpoint_dir).name
     init_run(
         "nvd-car-detection",
@@ -481,20 +506,31 @@ def eval_checkpoint(
     )
 
     device    = torch.device(f"cuda:{device_str}" if device_str.isdigit() else device_str)
+    # Load processor from the original Hub model, NOT the checkpoint directory.
+    # This guarantees identical image preprocessing to training (same normalisation
+    # parameters, same resize logic) and avoids any stale/modified attributes that
+    # processor.save_pretrained may have written to preprocessor_config.json.
     processor = RTDetrImageProcessor.from_pretrained(
-        str(checkpoint_dir),
-        size={"width": 640, "height": 640},
+        model_name,
+        size={"width": imgsz, "height": imgsz},
+        do_resize=True,
+        do_normalize=True,
     )
-    model     = RTDetrForObjectDetection.from_pretrained(str(checkpoint_dir)).to(device)
+    model     = RTDetrForObjectDetection.from_pretrained(
+        str(checkpoint_dir),
+        ignore_mismatched_sizes=True,
+    ).to(device)
     val_ds    = NVDCocoDataset(val_json, images_dir, processor)
     loader    = DataLoader(
         val_ds, batch_size=batch_size, shuffle=False,
         num_workers=workers, collate_fn=make_collate_fn(processor),
     )
 
-    # Fine-tuned model outputs label 0 directly — no remap needed
+    # Fine-tuned model outputs label 0 directly — no remap needed.
+    # Use default threshold=0.01 so torchmetrics receives predictions at all
+    # confidence levels — conf_thresh is only used for the P/R scalar below.
     map_result, all_preds, all_targets = _evaluate_loader(
-        model, processor, loader, device, threshold=conf_thresh
+        model, processor, loader, device
     )
     precision, recall = compute_precision_recall(
         all_preds, all_targets, conf_thresh=conf_thresh
@@ -518,6 +554,7 @@ def eval_checkpoint(
         split=split,
     )
     log_eval(metrics)
+    log_eval_summary(metrics)
     finish()
 
     return metrics
