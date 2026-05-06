@@ -274,6 +274,7 @@ def run_zero_shot_eval(
     loader = DataLoader(
         val_ds, batch_size=batch_size, shuffle=False,
         num_workers=workers, collate_fn=make_collate_fn(processor),
+        pin_memory=True, persistent_workers=True, prefetch_factor=4,
     )
 
     # Pass remap_label=_COCO_CAR_LABEL so predictions are filtered to car
@@ -345,10 +346,12 @@ def run_fine_tuning(config: TrainingConfig, train_json, val_json, images_dir, au
     train_loader = DataLoader(
         train_ds, batch_size=config.batch, shuffle=True,
         num_workers=config.workers, collate_fn=collate,
+        pin_memory=True, persistent_workers=True, prefetch_factor=4,
     )
     val_loader = DataLoader(
         val_ds, batch_size=config.batch, shuffle=False,
         num_workers=config.workers, collate_fn=collate,
+        pin_memory=True, persistent_workers=True, prefetch_factor=4,
     )
 
     model = RTDetrForObjectDetection.from_pretrained(
@@ -520,6 +523,7 @@ def eval_checkpoint(
     loader    = DataLoader(
         val_ds, batch_size=batch_size, shuffle=False,
         num_workers=workers, collate_fn=make_collate_fn(processor),
+        pin_memory=True, persistent_workers=True, prefetch_factor=4,
     )
 
     # Fine-tuned model outputs label 0 directly — no remap needed.

@@ -105,7 +105,7 @@ def build_pipeline(variant: str, bbox_format: str = "yolo", imgsz: int | None = 
         return None
 
     params = _bbox_params(bbox_format)
-    pre = [A.SmallestMaxSize(max_size=imgsz)] if imgsz is not None else []
+    pre = []
 
     if variant == "snow":
         return A.Compose(pre + _snow_transforms(), bbox_params=params)
