@@ -40,7 +40,7 @@ def _snow_transforms() -> list:
                     p=1.0,
                 ),
             ],
-            p=0.40,                    # 50% chance of applying snow or fog
+            p=0.40,                    # 40% chance of applying snow or fog
         ),
         
         # Independent brightness/contrast jitter (common in snowy conditions)
@@ -64,7 +64,7 @@ def _full_transforms() -> list:
 
         # Motion blur (reduced severity)
         A.MotionBlur(
-            blur_limit=(3, 4),
+            blur_limit=(3, 5),
             p=0.20,
         ),
 
@@ -72,7 +72,7 @@ def _full_transforms() -> list:
         A.OneOf(
             [
                 A.GaussianBlur(blur_limit=3, p=1.0),
-                A.ImageCompression(quality_lower=60, quality_upper=95, p=1.0),
+                A.ImageCompression(quality_range=(60, 95), p=1.0),
             ],
             p=0.25,
         ),
@@ -84,33 +84,46 @@ def _bbox_params(fmt: str) -> A.BboxParams:
         format=fmt,
         label_fields=["class_labels"],
         min_visibility=0.08,      # Balanced for partially visible cars
+        clip=True,
     )
 
 
-def build_pipeline(variant: str, bbox_format: str = "yolo") -> A.Compose | None:
+def build_pipeline(variant: str, bbox_format: str = "yolo", imgsz: int | None = None) -> A.Compose | None:
     """
     Return an Albumentations Compose for the named variant.
+
+    Parameters
+    ----------
+    imgsz : int | None
+        When provided, prepends ``A.SmallestMaxSize(imgsz)`` so that all
+        pixel-level transforms operate on already-downscaled images rather
+        than full-resolution UAV frames.  This prevents the DataLoader from
+        becoming a CPU bottleneck (e.g. RandomSnow on a 4K image is ~8×
+        slower than on a 1024-px image).
     """
     if variant == "none":
         return None
 
     params = _bbox_params(bbox_format)
+    pre = [A.SmallestMaxSize(max_size=imgsz)] if imgsz is not None else []
 
     if variant == "snow":
-        return A.Compose(_snow_transforms(), bbox_params=params)
+        return A.Compose(pre + _snow_transforms(), bbox_params=params)
 
     if variant == "full":
-        return A.Compose(_full_transforms(), bbox_params=params)
+        return A.Compose(pre + _full_transforms(), bbox_params=params)
 
     raise ValueError(f"Unknown augmentation variant '{variant}'. Choose from: none, snow, full")
 
 
-def build_frcnn_pipeline(variant: str):
-    return build_pipeline(variant, bbox_format="pascal_voc")
+def build_frcnn_pipeline(variant: str, imgsz: int | None = None):
+    return build_pipeline(variant, bbox_format="pascal_voc", imgsz=imgsz)
 
 
-def build_detr_pipeline(variant: str):
-    return build_pipeline(variant, bbox_format="coco")
+def build_detr_pipeline(variant: str, imgsz: int | None = None):
+    return build_pipeline(variant, bbox_format="coco", imgsz=imgsz)
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -121,28 +134,56 @@ def inject_into_yolo(model, variant: str) -> None:
     """
     Inject custom Albumentations pipeline into Ultralytics YOLO training.
     Native YOLO augmentations (Mosaic, HSV, geometric, etc.) remain active.
+
+    Uses ``on_train_epoch_start`` (not ``on_train_start``) so the DataLoader
+    and its dataset are guaranteed to exist.  Injection is attempted only once
+    via the ``_injected`` flag.
     """
     pipeline = build_pipeline(variant)
     if pipeline is None:
         print("[Augmentation] Using 'none' variant → Ultralytics native augmentation only.")
         return
 
-    def _on_train_start(trainer) -> None:
-        ds = trainer.train_loader.dataset
-        alb = getattr(ds, "albumentations", None)
+    _injected = [False]
 
+    def _inject(trainer) -> None:
+        if _injected[0]:
+            return
+        _injected[0] = True  # mark regardless — don't retry every epoch
+
+        loader = getattr(trainer, "train_loader", None)
+        if loader is None:
+            print("[Augmentation] WARNING: train_loader not available. "
+                  "Falling back to native Ultralytics augmentation.")
+            return
+
+        ds = loader.dataset
+
+        # Path 1 — direct attribute (ultralytics < 8.3)
+        alb = getattr(ds, "albumentations", None)
         if alb is not None and getattr(alb, "transform", None) is not None:
             alb.transform = pipeline
             if hasattr(alb, "contains_spatial"):
                 alb.contains_spatial = True
+            print(f"[Augmentation] Injected '{variant}' pipeline via ds.albumentations "
+                  f"({len(pipeline.transforms)} transform groups).")
+            return
 
-            n = len(pipeline.transforms)
-            print(f"[Augmentation] Successfully injected '{variant}' pipeline ({n} transform groups).")
-        else:
-            print("[Augmentation] WARNING: Could not find Albumentations wrapper on dataset. "
-                  "Falling back to native Ultralytics augmentation.")
+        # Path 2 — embedded in ds.transforms.transforms (ultralytics ≥ 8.3)
+        transform_list = getattr(getattr(ds, "transforms", None), "transforms", [])
+        for t in transform_list:
+            if type(t).__name__ == "Albumentations" and getattr(t, "transform", None) is not None:
+                t.transform = pipeline
+                if hasattr(t, "contains_spatial"):
+                    t.contains_spatial = True
+                print(f"[Augmentation] Injected '{variant}' pipeline via transforms pipeline "
+                      f"({len(pipeline.transforms)} transform groups).")
+                return
 
-    model.add_callback("on_train_start", _on_train_start)
+        print("[Augmentation] WARNING: Could not find Albumentations wrapper on dataset. "
+              "Falling back to native Ultralytics augmentation.")
+
+    model.add_callback("on_train_epoch_start", _inject)
 
 
 # ---------------------------------------------------------------------------

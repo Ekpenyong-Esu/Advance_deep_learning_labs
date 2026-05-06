@@ -30,7 +30,7 @@ from transformers import (
     get_linear_schedule_with_warmup,
 )
 
-from .evaluator import compute_precision_recall, measure_fps, parse_map_result
+from .evaluator import best_precision_recall, compute_precision_recall, measure_fps, parse_map_result
 from .models import TrainingConfig
 from .wandb_logger import finish, init_run, log, log_batch_loss, log_eval, log_eval_summary, log_model
 
@@ -121,8 +121,8 @@ class NVDCocoDataset(Dataset):
                 class_labels=indices,
             )
             image = Image.fromarray(result["image"])
-            anns  = [
-                {**anns[orig_i], "bbox": list(aug_box),
+            anns = [
+                {**anns[int(orig_i)], "bbox": list(aug_box),
                  "area": aug_box[2] * aug_box[3]}
                 for aug_box, orig_i in zip(result["bboxes"], result["class_labels"])
             ]
@@ -200,9 +200,7 @@ def _evaluate_loader(
             raw_labels = batch["labels"]
             # RT-DETR does not use pixel_mask
             outputs    = model(pixel_values=pv)
-            # CORRECT — use the actual input size to the model
-            h, w = pv.shape[-2], pv.shape[-1]  # e.g. 1024x1024
-            sizes = torch.tensor([[h, w]] * len(raw_labels), device=device)
+            sizes      = torch.stack([lbl["orig_size"] for lbl in raw_labels]).to(device)
             results    = processor.post_process_object_detection(
                 outputs, threshold=threshold, target_sizes=sizes,
                 use_focal_loss=True,   # RT-DETR: sigmoid per class, no background token
@@ -286,9 +284,7 @@ def run_zero_shot_eval(
         model, processor, loader, device,
         remap_label=_COCO_CAR_LABEL,
     )
-    precision, recall = compute_precision_recall(
-        all_preds, all_targets, conf_thresh=conf_thresh
-    )
+    precision, recall = best_precision_recall(all_preds, all_targets)
     fps = measure_fps(
         lambda img: model(pixel_values=img.unsqueeze(0).to(device)),
         val_ds,
@@ -339,10 +335,10 @@ def run_fine_tuning(config: TrainingConfig, train_json, val_json, images_dir, au
     )
     collate = make_collate_fn(processor)
 
-    aug_pipeline = build_detr_pipeline(aug_variant)
+    aug_pipeline = build_detr_pipeline(aug_variant, imgsz=config.imgsz)
 
     if aug_pipeline is not None:
-        print(f"[RT-DETR] Augmentation variant: '{aug_variant}'")
+        print(f"[RT-DETR] Augmentation variant: '{aug_variant}' (pre-resize to {config.imgsz}px)")
 
     train_ds = NVDCocoDataset(train_json, images_dir, processor, augment=aug_pipeline)
     val_ds   = NVDCocoDataset(val_json,   images_dir, processor)
@@ -532,9 +528,7 @@ def eval_checkpoint(
     map_result, all_preds, all_targets = _evaluate_loader(
         model, processor, loader, device
     )
-    precision, recall = compute_precision_recall(
-        all_preds, all_targets, conf_thresh=conf_thresh
-    )
+    precision, recall = best_precision_recall(all_preds, all_targets)
 
     # RT-DETR does not use pixel_mask
     fps = measure_fps(

@@ -8,6 +8,7 @@ Convert vendor results into EvalMetrics. Four responsibilities:
   measure_fps                — time single-image forward passes (shared by all trainers)
 """
 
+
 import time
 
 import torch
@@ -57,6 +58,36 @@ def compute_precision_recall(preds, targets, *, iou_thresh=0.5, conf_thresh=0.5)
     p = tp / (tp + fp) if (tp + fp) else 0.0
     r = tp / (tp + fn) if (tp + fn) else 0.0
     return round(p, 4), round(r, 4)
+
+
+def best_precision_recall(preds, targets, *, iou_thresh: float = 0.5, n_thresholds: int = 40):
+    """Return (precision, recall) at the confidence threshold that maximises F1.
+
+    Use instead of ``compute_precision_recall`` when the model's score
+    distribution is not well-calibrated to a known fixed threshold (e.g.
+    RT-DETR fine-tuned with focal loss often outputs true-positive scores
+    in the 0.05–0.25 range, well below a 0.3 fixed cutoff).
+
+    Sweeps ``n_thresholds`` evenly spaced values between the smallest and
+    largest score in the prediction set and returns P/R at the best F1.
+    """
+    import numpy as np
+
+    all_scores = [float(s) for p in preds for s in p["scores"]]
+    if not all_scores:
+        return 0.0, 0.0
+    hi = max(all_scores)
+    if hi <= 0.0:
+        return 0.0, 0.0
+    best_p, best_r, best_f1 = 0.0, 0.0, -1.0
+    for t in np.linspace(0.005, hi, n_thresholds):
+        p, r = compute_precision_recall(
+            preds, targets, iou_thresh=iou_thresh, conf_thresh=float(t)
+        )
+        f1 = 2.0 * p * r / (p + r) if (p + r) > 0 else 0.0
+        if f1 > best_f1:
+            best_f1, best_p, best_r = f1, p, r
+    return best_p, best_r
 
 
 def parse_map_result(metric_dict, *, precision, recall, fps, model_name, pretrain, fine_tuned, split, notes="") -> EvalMetrics:

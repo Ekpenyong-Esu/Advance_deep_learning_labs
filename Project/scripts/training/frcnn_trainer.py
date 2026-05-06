@@ -20,7 +20,7 @@ from torchvision.models.detection import fasterrcnn_resnet50_fpn
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.transforms.functional import to_tensor
 
-from .evaluator import compute_precision_recall, measure_fps, parse_map_result
+from .evaluator import best_precision_recall, compute_precision_recall, measure_fps, parse_map_result
 from .models import TrainingConfig
 from .wandb_logger import finish, init_run, log, log_batch_loss, log_eval, log_eval_summary, log_model
 
@@ -232,9 +232,9 @@ def run_zero_shot_eval(
     map_result, all_preds, all_targets = _evaluate_loader(
         model, loader, device, remap_label=_COCO_CAR_LABEL
     )
-    precision, recall = compute_precision_recall(
-        all_preds, all_targets, conf_thresh=conf_thresh
-    )
+    
+    precision, recall = best_precision_recall(all_preds, all_targets)
+    
     fps = measure_fps(lambda img: model([img.to(device)]), ds, device=device)
 
     metrics = parse_map_result(
@@ -273,9 +273,9 @@ def run_fine_tuning(config: TrainingConfig, data_yaml, aug_variant: str = "none"
         f"cuda:{config.device}" if config.device.isdigit() else config.device
     )
 
-    aug_pipeline = build_frcnn_pipeline(aug_variant)
+    aug_pipeline = build_frcnn_pipeline(aug_variant, imgsz=config.imgsz)
     if aug_pipeline is not None:
-        print(f"[FRCNN] Augmentation variant: '{aug_variant}'")
+        print(f"[FRCNN] Augmentation variant: '{aug_variant}' (pre-resize to {config.imgsz}px)")
 
     train_ds = NVDDetectionDataset(*_load_split_paths(data_yaml, "train"), augment=aug_pipeline)
     val_ds   = NVDDetectionDataset(*_load_split_paths(data_yaml, "val"))
@@ -400,9 +400,9 @@ def eval_checkpoint(
     )
 
     map_result, all_preds, all_targets = _evaluate_loader(model, loader, device)
-    precision, recall = compute_precision_recall(
-        all_preds, all_targets, conf_thresh=conf_thresh
-    )
+    
+    precision, recall = best_precision_recall(all_preds, all_targets)
+    
     fps = measure_fps(lambda img: model([img.to(device)]), ds, device=device)
 
     metrics = parse_map_result(
