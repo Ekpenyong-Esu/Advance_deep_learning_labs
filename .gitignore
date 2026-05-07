@@ -60,3 +60,4 @@ MNIST/
 WANDB/
 
 wandb/
+models/
