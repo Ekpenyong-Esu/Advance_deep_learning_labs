@@ -25,7 +25,7 @@ class TrainingConfig:
     output_dir:  str        = ""             # MUST be set explicitly — no silent cwd default
     run_name:    str        = "run"
     device:      str        = "0"            # "0" = first GPU, "cpu", or "mps"
-    workers:     int        = 16
+    workers:     int        = 8
     mosaic:      float      = 1.0            # mosaic augmentation probability (YOLO only)
     close_mosaic: int       = 10             # disable mosaic for last N epochs (Ultralytics schedule)
     patience:    int        = 20             # early-stopping: epochs without val/map50 improvement

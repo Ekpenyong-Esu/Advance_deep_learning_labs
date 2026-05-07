@@ -9,7 +9,7 @@
 #   model.train(data="configs/data.yaml", ...)
 #   python scripts/inspect_dataset.py --data-yaml configs/data.yaml
 
-path: /Labs/Project/data/raw       # root of the dataset (relative to this configs/ directory)
+path: /Advance_deep_learning_labs/Project/data/raw       # root of the dataset (relative to this configs/ directory)
 train: train.txt        # NVD flat layout — splits defined by .txt file lists
 val:   val.txt
 test:  test.txt
