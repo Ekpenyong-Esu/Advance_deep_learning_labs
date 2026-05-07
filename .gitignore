@@ -21,7 +21,6 @@ ENV/
 *.ipynb_checkpoints
 
 # ── ML / Training artefacts ───────────────────────────────────────────────────
-checkpoints/
 *.pth
 *.pt
 *.ckpt
@@ -33,8 +32,7 @@ data_files/
 # TensorBoard logs (legacy — now using wandb)
 runs/
 
-# Weights & Biases local cache
-wandb/
+# Weights & Biases local cachewandb/
 
 # ── OS / Editor ────────────────────────────────────────────────────────────────
 .DS_Store
@@ -57,5 +55,4 @@ netrc
 # ── Project  ───────────────────────────────────────────────────────────────────────
 data/
 
-models/
 
