@@ -1,0 +1,56 @@
+_wandb:
+    value:
+        cli_version: 0.25.1
+        e:
+            ra9n2oqk990vo1fd0hnf84g7c282h1ok:
+                codePath: Labs/Lab0/utils/test_wandb.ipynb
+                cpu_count: 32
+                cpu_count_logical: 64
+                cudaVersion: "13.0"
+                disk:
+                    /:
+                        total: "1889088135168"
+                        used: "1298059333632"
+                email: sreenidhithallam@gmail.com
+                executable: /usr/bin/python3
+                git:
+                    commit: 66bf1f22784a60781b73deff06cb09da3625747f
+                    remote: git@github.com:Ekpenyong-Esu/Advance_deep_learning_labs.git
+                gpu: NVIDIA GeForce RTX 2080 Ti
+                gpu_count: 1
+                gpu_nvidia:
+                    - architecture: Turing
+                      cudaCores: 4352
+                      memoryTotal: "11811160064"
+                      name: NVIDIA GeForce RTX 2080 Ti
+                      uuid: GPU-8cb3ed34-49f8-5741-3d46-20dd82d1f3e5
+                host: adl-15-7968fc59b6-6kzvx
+                memory:
+                    total: "270081486848"
+                os: Linux-5.15.0-168-generic-x86_64-with-glibc2.35
+                program: Labs/Lab0/utils/test_wandb.ipynb
+                python: CPython 3.11.15
+                root: /Labs/Lab0/utils
+                startedAt: "2026-03-28T17:58:14.515991Z"
+                writerId: ra9n2oqk990vo1fd0hnf84g7c282h1ok
+        m: []
+        python_version: 3.11.15
+        t:
+            "1":
+                - 105
+            "2":
+                - 105
+            "3":
+                - 2
+                - 13
+                - 16
+            "4": 3.11.15
+            "5": 0.25.1
+            "8":
+                - 1
+            "12": 0.25.1
+            "13": linux-x86_64
+epochs:
+    value: 5
+lr:
+    value: 0.001

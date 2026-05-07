@@ -1,0 +1,39 @@
+{
+  "os": "Linux-5.15.0-168-generic-x86_64-with-glibc2.35",
+  "python": "CPython 3.11.15",
+  "startedAt": "2026-03-28T17:58:14.515991Z",
+  "program": "Labs/Lab0/utils/test_wandb.ipynb",
+  "codePath": "Labs/Lab0/utils/test_wandb.ipynb",
+  "git": {
+    "remote": "git@github.com:Ekpenyong-Esu/Advance_deep_learning_labs.git",
+    "commit": "66bf1f22784a60781b73deff06cb09da3625747f"
+  },
+  "email": "sreenidhithallam@gmail.com",
+  "root": "/Labs/Lab0/utils",
+  "host": "adl-15-7968fc59b6-6kzvx",
+  "executable": "/usr/bin/python3",
+  "cpu_count": 32,
+  "cpu_count_logical": 64,
+  "gpu": "NVIDIA GeForce RTX 2080 Ti",
+  "gpu_count": 1,
+  "disk": {
+    "/": {
+      "total": "1889088135168",
+      "used": "1298059333632"
+    }
+  },
+  "memory": {
+    "total": "270081486848"
+  },
+  "gpu_nvidia": [
+    {
+      "name": "NVIDIA GeForce RTX 2080 Ti",
+      "memoryTotal": "11811160064",
+      "cudaCores": 4352,
+      "architecture": "Turing",
+      "uuid": "GPU-8cb3ed34-49f8-5741-3d46-20dd82d1f3e5"
+    }
+  ],
+  "cudaVersion": "13.0",
+  "writerId": "ra9n2oqk990vo1fd0hnf84g7c282h1ok"
+}
