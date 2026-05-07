@@ -33,8 +33,6 @@ data/processed/
 *.weights
 
 # Experiment outputs
-results/*.csv
-results/figures/
 wandb/
 runs/
 
