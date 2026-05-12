@@ -5,9 +5,12 @@ Albumentations pipelines for the Phase 3 snow-augmentation ablation study.
 
 Variants
 --------
-  "none"  — Ultralytics native augmentation only
-  "snow"  — native YOLO + realistic snow/weather augmentation
-  "full"  — native YOLO + weather + sensor degradation (noise + blur)
+   "none"      — Ultralytics native augmentation only
+  "geo"       — geometry-only augmentation (flip + shift/scale/rotate)
+  "snow"      — native YOLO + realistic snow/weather augmentation
+  "full"      — native YOLO + weather + sensor degradation (noise + blur)
+  "snow_geo"  — geometry + weather augmentation
+  "full_geo"  — geometry + weather + sensor degradation
 """
 
 import random
@@ -88,6 +91,21 @@ def _bbox_params(fmt: str) -> A.BboxParams:
     )
 
 
+def _geo_transforms() -> list:
+    """Geometry augmentations useful for aerial vehicle detection."""
+    return [
+        A.HorizontalFlip(p=0.5),
+        A.VerticalFlip(p=0.1),
+        A.ShiftScaleRotate(
+            shift_limit=0.05,
+            scale_limit=0.10,
+            rotate_limit=10,
+            border_mode=cv2.BORDER_REFLECT_101,
+            p=0.25,
+        ),
+    ]
+
+
 def build_pipeline(variant: str, bbox_format: str = "yolo", imgsz: int | None = None) -> A.Compose | None:
     """
     Return an Albumentations Compose for the named variant.
@@ -116,7 +134,19 @@ def build_pipeline(variant: str, bbox_format: str = "yolo", imgsz: int | None = 
     if variant == "full":
         return A.Compose(pre + _full_transforms(), bbox_params=params)
 
-    raise ValueError(f"Unknown augmentation variant '{variant}'. Choose from: none, snow, full")
+     if variant == "geo":
+        return A.Compose(pre + _geo_transforms(), bbox_params=params)
+
+    if variant == "snow_geo":
+        return A.Compose(pre + _geo_transforms() + _snow_transforms(), bbox_params=params)
+
+    if variant == "full_geo":
+        return A.Compose(pre + _geo_transforms() + _full_transforms(), bbox_params=params)
+
+    raise ValueError(
+        f"Unknown augmentation variant '{variant}'. Choose from: "
+        "none, geo, snow, full, snow_geo, full_geo"
+    )
 
 
 def build_frcnn_pipeline(variant: str, imgsz: int | None = None):
