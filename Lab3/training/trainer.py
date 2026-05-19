@@ -23,7 +23,7 @@ Design notes
 import torch
 import torch.nn as nn
 import tqdm
-import wandb
+
 import config
 from data.vocabulary import PAD_IDX
 
@@ -55,7 +55,6 @@ def train_epoch(
     dec_optimizer: torch.optim.Optimizer,
     device:       torch.device,
     grad_clip:    float = None,
-    epoch:        int   = None,
 ) -> dict:
     """
     Run one full training epoch.
@@ -131,13 +130,7 @@ def train_epoch(
         total_tokens += non_pad
 
     avg_loss = total_loss / max(total_tokens, 1)
-    metrics = {"train_loss": avg_loss, "train_batches": len(loader)}
-
-    if config.WANDB_ENABLED:
-        log = {"train_loss": avg_loss}
-        wandb.log(log, step=epoch)
-
-    return metrics
+    return {"train_loss": avg_loss, "train_batches": len(loader)}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -150,7 +143,6 @@ def validate_epoch(
     loader:    torch.utils.data.DataLoader,
     criterion: nn.Module,
     device:    torch.device,
-    epoch:     int = None,
 ) -> dict:
     """
     Evaluate the model on the validation set for one epoch.
@@ -200,9 +192,4 @@ def validate_epoch(
             total_tokens += non_pad
 
     avg_loss = total_loss / max(total_tokens, 1)
-    metrics = {"val_loss": avg_loss, "val_batches": len(loader)}
-    if config.WANDB_ENABLED:
-        log = {"val_loss": avg_loss}
-        wandb.log(log, step=epoch)
-
-    return metrics
+    return {"val_loss": avg_loss, "val_batches": len(loader)}

@@ -1,0 +1,25 @@
+# Lab 1 — Sentiment Analysis: ANN, BiLSTM, and Transformers
+#
+# Core deep learning
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Hugging Face ecosystem
+transformers>=4.35.0
+datasets>=2.14.0
+tokenizers>=0.14.0
+
+# NLP utilities
+nltk>=3.8.0
+
+# Data processing
+scikit-learn>=1.3.0
+scipy>=1.11.0
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Experiment tracking
+wandb>=0.16.0
+
+# Progress bars
+tqdm>=4.65.0

@@ -13,7 +13,7 @@ from pathlib import Path
 # ─────────────────────────────────────────────────────────────────────────────
 
 PROJECT_ROOT   = Path(__file__).resolve().parent
-DATA_DIR       = PROJECT_ROOT / "dataset" / "Flickr8k"
+DATA_DIR       = PROJECT_ROOT / "data" / "Flickr8k"
 IMAGES_DIR     = DATA_DIR / "Images"
 CAPTIONS_FILE  = DATA_DIR / "captions.txt"
 CHECKPOINT_DIR = str(PROJECT_ROOT / "checkpoints")
@@ -60,27 +60,17 @@ DROPOUT     = 0.5    # dropout probability in decoder
 
 # Fine-tune the CNN encoder's last two ResNet blocks during training.
 # Set to False for faster training; True for better performance.
-FINE_TUNE_ENCODER = True
+FINE_TUNE_ENCODER = False
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Training
 # ─────────────────────────────────────────────────────────────────────────────
 
 BATCH_SIZE     = 32
-NUM_EPOCHS     = 30
-ENCODER_LR     = 1e-5    # learning rate for encoder (when fine-tuning)
+NUM_EPOCHS     = 10
+ENCODER_LR     = 1e-4    # learning rate for encoder (when fine-tuning)
 DECODER_LR     = 4e-4    # learning rate for decoder
 GRAD_CLIP      = 5.0     # gradient clipping norm (prevents exploding gradients)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Weights & Biases logging
-# ─────────────────────────────────────────────────────────────────────────────
-
-WANDB_ENABLED = True          # set False to disable all wandb logging
-WANDB_PROJECT = "image-captioning-lab3"
-WANDB_RUN_NAME = None         # None → wandb auto-generates a run name
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Caption Generation
