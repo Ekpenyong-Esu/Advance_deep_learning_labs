@@ -1,85 +1,68 @@
-# Python
+# ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
-.Python
+*.so
+*.egg
 *.egg-info/
 dist/
 build/
-*.egg
+.eggs/
 
-# Virtual environments
+# ── Virtual environments ───────────────────────────────────────────────────────
 venv/
 .venv/
 env/
 .env/
+ENV/
 
-# Jupyter Notebook
+# ── Jupyter ────────────────────────────────────────────────────────────────────
 .ipynb_checkpoints/
 *.ipynb_checkpoints
-
-# PyTorch checkpoints & model weights
-checkpoints/
-*.pt
-*.pth
-
-# Outputs
-outputs/
-
-# Dataset (large binary files)
-dataset/
-
-# Environment variables
-.env
-
-# OS
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-
-# wandb
-wandb/
-
-# Logs
-*.log
-
-nltk_data/
-
-Project.tar.gz
-
-Project.tar.gz/
-
-
-
-# system / Jupyter
-.ipynb_checkpoints/
 .jupyter/
 .ipython/
 
-# environments
-.cache/
-.keras/
-.local/
+# ── ML / Training artefacts ───────────────────────────────────────────────────
+checkpoints/
+outputs/
+runs/
+wandb/
+WANDB/
+models/
+*.pt
+*.pth
+*.ckpt
+*.h5
 
-# OS / logs
+# ── Datasets (DO NOT TRACK) ────────────────────────────────────────────────────
+data/
+dataset/
+data_files/
+MNIST/
+
+# ── Logs / Temp files ──────────────────────────────────────────────────────────
 *.log
-*.sqlite
-.bash_history
+*.tmp
+*.bak
 
-# large files
+# ── OS / Editor ────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Secrets / Credentials ──────────────────────────────────────────────────────
+.env
+*.env
+.netrc
+.netrc
+
+# ── Archives / Large files ─────────────────────────────────────────────────────
 *.zip
 *.tar
 *.tar.gz
 Project.tar.gz
-dataset/
-data/
-
-# ML outputs
-runs/
-wandb/
-*.pt
-*.pth
