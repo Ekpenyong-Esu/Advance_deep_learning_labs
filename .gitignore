@@ -1,0 +1,85 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# PyTorch checkpoints & model weights
+checkpoints/
+*.pt
+*.pth
+
+# Outputs
+outputs/
+
+# Dataset (large binary files)
+dataset/
+
+# Environment variables
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# wandb
+wandb/
+
+# Logs
+*.log
+
+nltk_data/
+
+Project.tar.gz
+
+Project.tar.gz/
+
+
+
+# system / Jupyter
+.ipynb_checkpoints/
+.jupyter/
+.ipython/
+
+# environments
+.cache/
+.keras/
+.local/
+
+# OS / logs
+*.log
+*.sqlite
+.bash_history
+
+# large files
+*.zip
+*.tar
+*.tar.gz
+Project.tar.gz
+dataset/
+data/
+
+# ML outputs
+runs/
+wandb/
+*.pt
+*.pth
