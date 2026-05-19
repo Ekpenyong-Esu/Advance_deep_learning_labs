@@ -67,7 +67,7 @@ FINE_TUNE_ENCODER = True
 # ─────────────────────────────────────────────────────────────────────────────
 
 BATCH_SIZE     = 32
-NUM_EPOCHS     = 30
+NUM_EPOCHS     = 20
 ENCODER_LR     = 1e-5    # learning rate for encoder (when fine-tuning)
 DECODER_LR     = 4e-4    # learning rate for decoder
 GRAD_CLIP      = 5.0     # gradient clipping norm (prevents exploding gradients)
