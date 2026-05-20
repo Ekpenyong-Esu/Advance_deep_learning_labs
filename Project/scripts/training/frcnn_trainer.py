@@ -21,14 +21,12 @@ from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.transforms.functional import to_tensor
 
 from .evaluator import best_precision_recall, compute_precision_recall, measure_fps, parse_map_result
-from .models import TrainingConfig
+from .models import TrainingConfig, WANDB_PROJECT
 from .wandb_logger import finish, init_run, log, log_batch_loss, log_eval, log_eval_summary, log_model
 
-_NUM_CLASSES = 2   # 0 = background, 1 = car
-
-# Car label in torchvision's COCO 91-class pretrained model (1-indexed, 0=background).
+# Default car label in torchvision's COCO 91-class pretrained model (1-indexed, 0=background).
 # Confirmed: COCO category_id=3 → torchvision label 3 = "car".
-# Used only in zero-shot eval to filter car predictions and remap to NVD label 1.
+# Override via coco_car_label parameter in run_zero_shot_eval for other classes/datasets.
 _COCO_CAR_LABEL = 3
 
 
@@ -127,8 +125,14 @@ def _load_split_paths(data_yaml_path, split):
     return images, labels
 
 
-def _build_model(freeze=None, imgsz=1024):
-    """Build fasterrcnn_resnet50_fpn with a 2-class head (background + car).
+def _build_model(freeze=None, imgsz=1024, num_classes=1):
+    """Build fasterrcnn_resnet50_fpn with a custom detection head.
+
+    Parameters
+    ----------
+    num_classes : int
+        Number of foreground classes (excluding background). Default 1 (car only).
+        The head will have num_classes + 1 outputs (background + foreground classes).
 
     freeze=N mirrors YOLOv9 freeze=N semantics — freezes the first N
     named children of the ResNet backbone body.
@@ -141,7 +145,7 @@ def _build_model(freeze=None, imgsz=1024):
     """
     model   = fasterrcnn_resnet50_fpn(weights="DEFAULT", min_size=imgsz, max_size=imgsz)
     in_feat = model.roi_heads.box_predictor.cls_score.in_features
-    model.roi_heads.box_predictor = FastRCNNPredictor(in_feat, _NUM_CLASSES)
+    model.roi_heads.box_predictor = FastRCNNPredictor(in_feat, num_classes + 1)
     if freeze is not None:
         backbone_layers = list(model.backbone.body.named_children())
         n_freeze = min(freeze, len(backbone_layers))
@@ -209,10 +213,21 @@ def run_zero_shot_eval(
     batch_size: int = 4,
     workers: int = 4,
     conf_thresh: float = 0.3,
+    project: str = WANDB_PROJECT,
+    coco_car_label: int = _COCO_CAR_LABEL,
 ):
-    """Evaluate COCO-pretrained Faster R-CNN on NVD with no fine-tuning. Returns EvalMetrics."""
+    """Evaluate COCO-pretrained Faster R-CNN with no fine-tuning. Returns EvalMetrics.
+
+    Parameters
+    ----------
+    project : str
+        W&B project name. Override to log to a different project.
+    coco_car_label : int
+        Torchvision COCO label index for the target class (1-indexed, 0=background).
+        Default 3 (car in the 91-class COCO mapping). Change for other target classes.
+    """
     init_run(
-        "nvd-car-detection",
+        project,
         f"zero-shot-frcnn-{split}",
         config={"model": "fasterrcnn_resnet50_fpn", "split": split},
     )
@@ -227,10 +242,10 @@ def run_zero_shot_eval(
         num_workers=workers, collate_fn=_collate,
     )
 
-    # Pass remap_label=_COCO_CAR_LABEL so predictions are filtered to car
-    # detections only and remapped to label 1 to match NVD targets.
+    # Pass remap_label=coco_car_label so predictions are filtered to the target
+    # class only and remapped to label 1 to match NVD targets.
     map_result, all_preds, all_targets = _evaluate_loader(
-        model, loader, device, remap_label=_COCO_CAR_LABEL
+        model, loader, device, remap_label=coco_car_label
     )
     
     precision, recall = best_precision_recall(all_preds, all_targets)
@@ -288,7 +303,7 @@ def run_fine_tuning(config: TrainingConfig, data_yaml, aug_variant: str = "none"
         num_workers=config.workers, collate_fn=_collate,
     )
 
-    model = _build_model(freeze=config.freeze, imgsz=config.imgsz).to(device)
+    model = _build_model(freeze=config.freeze, imgsz=config.imgsz, num_classes=config.num_classes).to(device)
     optimizer = torch.optim.SGD(
         [p for p in model.parameters() if p.requires_grad],
         lr=config.lr0, momentum=0.9, weight_decay=5e-4,
@@ -378,17 +393,28 @@ def eval_checkpoint(
     workers: int = 4,
     conf_thresh: float = 0.3,
     imgsz: int = 1024,
+    num_classes: int = 1,
+    project: str = WANDB_PROJECT,
 ):
-    """Evaluate a saved Faster R-CNN checkpoint. Returns EvalMetrics."""
+    """Evaluate a saved Faster R-CNN checkpoint. Returns EvalMetrics.
+
+    Parameters
+    ----------
+    num_classes : int
+        Number of foreground classes the checkpoint was trained with. Must match
+        the saved model's head. Default 1 (single-class NVD car detector).
+    project : str
+        W&B project name.
+    """
     run_label = Path(weights).stem
     init_run(
-        "nvd-car-detection",
+        project,
         f"eval-frcnn-{run_label}-{split}",
         config={"weights": str(weights), "split": split},
     )
 
     device = torch.device(f"cuda:{device_str}" if device_str.isdigit() else device_str)
-    model  = _build_model(imgsz=imgsz).to(device)
+    model  = _build_model(imgsz=imgsz, num_classes=num_classes).to(device)
     model.load_state_dict(
         torch.load(str(weights), map_location=device, weights_only=True)
     )

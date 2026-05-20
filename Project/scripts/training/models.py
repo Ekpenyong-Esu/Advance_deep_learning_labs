@@ -9,6 +9,9 @@ single source of truth for the shape of a training run and its outcomes.
 
 from dataclasses import dataclass
 
+# Single source of truth for the W&B project name.
+WANDB_PROJECT = "nvd-car-detection"
+
 
 @dataclass
 class TrainingConfig:
@@ -21,7 +24,7 @@ class TrainingConfig:
     imgsz:       int        = 1024
     lr0:         float      = 0.01
     freeze:      int | None = None           # layers to freeze; None = no freezing
-    project:     str        = "nvd-car-detection"
+    project:     str        = WANDB_PROJECT
     output_dir:  str        = ""             # MUST be set explicitly — no silent cwd default
     run_name:    str        = "run"
     device:      str        = "0"            # "0" = first GPU, "cpu", or "mps"
@@ -29,6 +32,14 @@ class TrainingConfig:
     mosaic:      float      = 1.0            # mosaic augmentation probability (YOLO only)
     close_mosaic: int       = 10             # disable mosaic for last N epochs (Ultralytics schedule)
     patience:    int        = 10             # early-stopping: epochs without val/map50 improvement
+    num_classes: int        = 1              # number of foreground classes (excluding background)
+    # Additional YOLO augmentation knobs for generalization
+    mixup:       float      = 0.0            # mixup alpha (0 = disabled)
+    copy_paste:  float      = 0.0            # copy-paste augmentation prob (0 = disabled)
+    scale:       float      = 0.5            # image scale augmentation ±gain
+    hsv_h:       float      = 0.015          # HSV-Hue augmentation
+    hsv_s:       float      = 0.7            # HSV-Saturation augmentation
+    hsv_v:       float      = 0.4            # HSV-Value augmentation
 
     def __post_init__(self):
         if self.epochs <= 0:
@@ -73,5 +84,5 @@ class EvalMetrics:
                 raise ValueError(f"{name} must be in [0, 1], got {val}")
         if self.fps < 0:
             raise ValueError(f"fps must be >= 0, got {self.fps}")
-        if self.split not in ("val", "test"):
-            raise ValueError(f"split must be 'val' or 'test', got '{self.split}'")
+        if not self.split:
+            raise ValueError("split must be a non-empty string")

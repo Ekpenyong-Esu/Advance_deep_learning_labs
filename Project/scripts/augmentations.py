@@ -27,30 +27,56 @@ import matplotlib.pyplot as plt
 def _snow_transforms() -> list:
     """
     Realistic snow/weather augmentations for aerial UAV footage.
-    Separates weather effects from photometric (brightness/contrast) changes.
+    Probabilities tuned for domain shift to an unseen recording location:
+    higher than initial values so the model cannot rely on recording-specific
+    appearance cues (lighting, snow coverage, background texture).
+
+    KEY INSIGHT: Training images are ~2× brighter (mean=139) than test images
+    (mean=67). Aggressive brightness/gamma augmentation is critical to bridge
+    this domain gap.
     """
     return [
         # Weather effects: Snow or Fog (not both at once)
         A.OneOf(
             [
                 A.RandomSnow(
-                    snow_point_range=(0.01, 0.10),
-                    brightness_coeff=1.20,
+                    snow_point_range=(0.01, 0.15),
+                    brightness_coeff=1.25,
                     p=1.0,
                 ),
                 A.RandomFog(
-                    fog_coef_range=(0.03, 0.15),
+                    fog_coef_range=(0.03, 0.20),
                     p=1.0,
                 ),
             ],
-            p=0.40,                    # 40% chance of applying snow or fog
+            p=0.60,
         ),
-        
-        # Independent brightness/contrast jitter (common in snowy conditions)
+
+        # AGGRESSIVE brightness/contrast — bridge the train→test brightness gap
         A.RandomBrightnessContrast(
-            brightness_limit=(-0.20, 0.20),
-            contrast_limit=(-0.15, 0.20),
-            p=0.35,
+            brightness_limit=(-0.45, 0.15),   # heavily biased towards darkening
+            contrast_limit=(-0.25, 0.25),
+            p=0.70,
+        ),
+
+        # Gamma shift — non-linear darkening that simulates overcast/dusk
+        A.RandomGamma(
+            gamma_limit=(50, 150),            # <100 = darken, >100 = brighten
+            p=0.50,
+        ),
+
+        # Hue/saturation shift — handles colour cast differences between recordings
+        A.HueSaturationValue(
+            hue_shift_limit=15,
+            sat_shift_limit=30,
+            val_shift_limit=30,
+            p=0.40,
+        ),
+
+        # CLAHE — local contrast enhancement, helps with low-contrast snow scenes
+        A.CLAHE(
+            clip_limit=(1.0, 4.0),
+            p=0.25,
         ),
     ]
 
@@ -59,24 +85,32 @@ def _full_transforms() -> list:
     """Weather + sensor/motion degradation (UAV-realistic)."""
     return _snow_transforms() + [
 
-        # Sensor noise (mild, realistic UAV conditions)
+        # Sensor noise
         A.GaussNoise(
-            std_range=(0.005, 0.02),
-            p=0.30,
+            std_range=(0.005, 0.035),
+            p=0.45,
         ),
 
-        # Motion blur (reduced severity)
+        # Motion blur — UAV vibration / camera shake
         A.MotionBlur(
-            blur_limit=(3, 5),
-            p=0.20,
+            blur_limit=(3, 9),
+            p=0.35,
         ),
 
         # Compression / transmission artifacts
         A.OneOf(
             [
-                A.GaussianBlur(blur_limit=3, p=1.0),
-                A.ImageCompression(quality_range=(60, 95), p=1.0),
+                A.GaussianBlur(blur_limit=5, p=1.0),
+                A.ImageCompression(quality_range=(40, 90), p=1.0),
             ],
+            p=0.40,
+        ),
+
+        # Random shadow / darkening patches — simulates building shadows on snow
+        A.RandomShadow(
+            shadow_roi=(0, 0, 1, 1),
+            num_shadows_limit=(1, 3),
+            shadow_dimension=5,
             p=0.25,
         ),
     ]
@@ -123,7 +157,7 @@ def build_pipeline(variant: str, bbox_format: str = "yolo", imgsz: int | None = 
         return None
 
     params = _bbox_params(bbox_format)
-    pre = []  # ← always initialize first
+    pre = [A.SmallestMaxSize(imgsz)] if imgsz is not None else []
 
     if variant == "snow":
         return A.Compose(pre + _snow_transforms(), bbox_params=params)

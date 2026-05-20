@@ -22,7 +22,7 @@ save_zero_shot_result    — write a single EvalMetrics result to a CSV file
 append_comparison_row    — append one EvalMetrics row to results/model_comparison.csv
 """
 
-from .models import EvalMetrics, TrainingConfig
+from .models import EvalMetrics, TrainingConfig, WANDB_PROJECT
 
 from .yolo_trainer import run_zero_shot_eval as run_yolo_zero_shot_eval
 from .yolo_trainer import run_fine_tuning    as run_yolo_fine_tuning

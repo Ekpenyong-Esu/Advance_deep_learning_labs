@@ -31,15 +31,15 @@ from transformers import (
 )
 
 from .evaluator import best_precision_recall, compute_precision_recall, measure_fps, parse_map_result
-from .models import TrainingConfig
+from .models import TrainingConfig, WANDB_PROJECT
 from .wandb_logger import finish, init_run, log, log_batch_loss, log_eval, log_eval_summary, log_model
 
 # Suppress FutureWarning noise from the image processor
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-# Car label index in PekingU/rtdetr_r50vd's id2label (0-indexed 80-class mapping).
+# Default car label index in PekingU/rtdetr_r50vd's id2label (0-indexed 80-class mapping).
 # Confirmed from config.json: id2label["2"] = "car", label2id["car"] = 2.
-# Used only in zero-shot eval to filter car predictions and remap to NVD label 0.
+# Override via coco_car_label parameter in run_zero_shot_eval for other classes/datasets.
 _COCO_CAR_LABEL = 2
 
 
@@ -254,10 +254,21 @@ def run_zero_shot_eval(
     workers: int = 4,
     conf_thresh: float = 0.3,
     imgsz: int = 640,
+    project: str = WANDB_PROJECT,
+    coco_car_label: int = _COCO_CAR_LABEL,
 ):
-    """Evaluate COCO-pretrained RT-DETR on NVD with no fine-tuning. Returns EvalMetrics."""
+    """Evaluate COCO-pretrained RT-DETR with no fine-tuning. Returns EvalMetrics.
+
+    Parameters
+    ----------
+    project : str
+        W&B project name. Override to log to a different project.
+    coco_car_label : int
+        0-indexed COCO label for the target class in the pretrained model.
+        Default 2 (car in RT-DETR's 80-class mapping). Change for other targets.
+    """
     init_run(
-        "nvd-car-detection",
+        project,
         f"zero-shot-rtdetr-{split}",
         config={"model": model_name, "split": split},
     )
@@ -277,13 +288,13 @@ def run_zero_shot_eval(
         pin_memory=True, persistent_workers=True, prefetch_factor=4,
     )
 
-    # Pass remap_label=_COCO_CAR_LABEL so predictions are filtered to car
-    # detections only and remapped to label 0 to match NVD targets.
+    # Pass remap_label=coco_car_label so predictions are filtered to the target
+    # class only and remapped to label 0 to match NVD targets.
     # Use default threshold=0.01 so torchmetrics receives predictions at all
     # confidence levels — conf_thresh is only used for the P/R scalar below.
     map_result, all_preds, all_targets = _evaluate_loader(
         model, processor, loader, device,
-        remap_label=_COCO_CAR_LABEL,
+        remap_label=coco_car_label,
     )
     precision, recall = best_precision_recall(all_preds, all_targets)
     fps = measure_fps(
@@ -486,6 +497,7 @@ def eval_checkpoint(
     workers: int = 4,
     conf_thresh: float = 0.3,
     imgsz: int = 1024,
+    project: str = WANDB_PROJECT,
 ):
     """Evaluate a saved RT-DETR checkpoint. Returns EvalMetrics.
 
@@ -496,10 +508,12 @@ def eval_checkpoint(
         always loaded from here (not from the checkpoint) so preprocessing is
         identical to what was used during training.  Only the model *weights*
         come from ``checkpoint_dir``.
+    project : str
+        W&B project name.
     """
     run_label = Path(checkpoint_dir).name
     init_run(
-        "nvd-car-detection",
+        project,
         f"eval-rtdetr-{run_label}-{split}",
         config={"checkpoint": str(checkpoint_dir), "split": split},
     )

@@ -17,7 +17,7 @@ from ultralytics import YOLO
 from ultralytics.utils import SETTINGS
 
 from .evaluator import parse_ultralytics_results
-from .models import EvalMetrics, TrainingConfig
+from .models import EvalMetrics, TrainingConfig, WANDB_PROJECT
 from .wandb_logger import finish, init_run, log_eval, log_eval_summary, log_model
 from scripts.augmentations import inject_into_yolo
 
@@ -39,6 +39,7 @@ def run_zero_shot_eval(
     split: str = "val",
     device: str = "0",
     workers: int = 4,
+    project: str = WANDB_PROJECT,
 ) -> EvalMetrics:
     """
     Run inference with COCO-pretrained YOLOv9 weights — no fine-tuning.
@@ -53,6 +54,8 @@ def run_zero_shot_eval(
         Dataset split to evaluate on (default ``"val"``).
     device : str
         ``"0"`` for first GPU, ``"cpu"`` for CPU, ``"mps"`` for Apple Silicon.
+    project : str
+        W&B project name.
 
     Returns
     -------
@@ -61,7 +64,7 @@ def run_zero_shot_eval(
     """
     _enable_ultralytics_wandb()
     init_run(
-        "nvd-car-detection",
+        project,
         f"zero-shot-{model_name.replace('.pt', '')}-{split}",
         config={"model": model_name, "split": split},
     )
@@ -127,6 +130,12 @@ def run_fine_tuning(config: TrainingConfig, aug_variant: str = "none") -> Path:
         # -------------------------
         "mosaic": config.mosaic,
         "close_mosaic": config.close_mosaic,
+        "mixup": config.mixup,
+        "copy_paste": config.copy_paste,
+        "scale": config.scale,
+        "hsv_h": config.hsv_h,
+        "hsv_s": config.hsv_s,
+        "hsv_v": config.hsv_v,
         # -------------------------
         # EARLY STOPPING
         # -------------------------
@@ -179,6 +188,7 @@ def eval_checkpoint(
     device: str = "0",
     workers: int = 4,
     model_label: str | None = None,
+    project: str = WANDB_PROJECT,
 ) -> EvalMetrics:
     """
     Evaluate a saved YOLOv9 checkpoint on a dataset split.
@@ -194,6 +204,8 @@ def eval_checkpoint(
     model_label : str | None
         Human-readable label for the model column in the results CSV.
         Defaults to the checkpoint filename stem.
+    project : str
+        W&B project name.
     """
     weights = Path(weights)
     if not weights.exists():
@@ -203,7 +215,7 @@ def eval_checkpoint(
 
     _enable_ultralytics_wandb()
     init_run(
-        "nvd-car-detection",
+        project,
         f"eval-{label}-{split}",
         config={"weights": str(weights), "split": split},
     )
