@@ -7,14 +7,12 @@
 --extra-index-url https://download.pytorch.org/whl/cu124
 torch>=2.3.0
 torchvision>=0.18.0
-torchaudio>=2.3.0
 
-# YOLOv9 via ultralytics (Option A — chosen implementation)
+# YOLOv9 via ultralytics
 ultralytics>=8.2.0
 
-# HuggingFace Transformers — DETR and RT-DETR
+# HuggingFace Transformers — RT-DETR
 transformers>=4.46.0
-accelerate>=0.29.0
 torchmetrics>=1.4.0
 
 # Augmentations
@@ -24,6 +22,7 @@ albumentations>=1.4.0
 opencv-python>=4.9.0
 
 # Data science & plotting
+numpy>=1.26.0
 matplotlib>=3.8.0
 pandas>=2.2.0
 seaborn>=0.13.0
@@ -37,8 +36,4 @@ wandb>=0.17.0
 # Utilities
 Pillow>=10.3.0
 PyYAML>=6.0.1
-scipy>=1.13.0
 pycocotools>=2.0.11
-
-# DETR backbone support
-timm>=0.9.0

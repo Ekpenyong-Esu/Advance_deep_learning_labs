@@ -4,18 +4,18 @@
 #
 # KEY DIFFERENCES FROM data.yaml:
 # 1. Recording-level split (no temporal leakage)
-# 2. Training frames subsampled every 5th frame to reduce redundancy
-#    (6056 → ~1213 diverse frames instead of near-duplicate consecutive frames)
+# 2. Training frames subsampled every 3rd frame to reduce redundancy
+#    (6056 → 2020 diverse frames instead of near-duplicate consecutive frames)
 #
 # This forces the model to learn generalisable car features rather than
 # memorising specific scene appearances from one dominant recording.
 #
 # Generate the split files:
 #   python scripts/make_recording_splits.py
-#   python scripts/subsample_frames.py --step 5
+#   python scripts/subsample_frames.py --step 3
 
 path: ../data/raw
-train: train_rec_sub.txt    # subsampled training split (1213 frames, 3 recordings)
+train: train_rec_sub.txt    # subsampled training split (2020 frames, 3 recordings)
 val:   val_rec.txt          # recording-level val split  (1203 frames, Nyland only)
 test:  test.txt             # unchanged test split       (1191 frames, Bjenberg 02_stab)
 
