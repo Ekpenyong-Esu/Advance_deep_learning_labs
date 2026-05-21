@@ -49,12 +49,16 @@ def subsample(input_txt: Path, step: int) -> list[str]:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--input", default="data/raw/train_rec.txt", help="Input split file")
+    parser.add_argument("--input", default=None, help="Input split file (default: <project_root>/data/raw/train_rec.txt)")
     parser.add_argument("--step", type=int, default=5, help="Keep every Nth frame (default: 5)")
     parser.add_argument("--output", default=None, help="Output file (default: input_sub.txt)")
     args = parser.parse_args()
 
-    input_path = Path(args.input)
+    # Resolve paths relative to project root regardless of working directory
+    project_root = Path(__file__).resolve().parent.parent
+    data_dir = project_root / "data" / "raw"
+
+    input_path = Path(args.input) if args.input else data_dir / "train_rec.txt"
     if not input_path.exists():
         raise FileNotFoundError(f"Input not found: {input_path}")
 
@@ -63,12 +67,10 @@ def main():
     )
 
     result = subsample(input_path, args.step)
-
     output_path.write_text("\n".join(result) + "\n", encoding="utf-8")
     original_count = len(input_path.read_text().splitlines())
     print(f"Subsampled: {original_count} → {len(result)} frames (step={args.step})")
     print(f"Written: {output_path}")
-
 
 if __name__ == "__main__":
     main()

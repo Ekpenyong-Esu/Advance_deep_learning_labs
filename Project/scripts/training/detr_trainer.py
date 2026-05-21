@@ -398,11 +398,21 @@ def run_fine_tuning(config: TrainingConfig, train_json, val_json, images_dir, au
     trainable = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(trainable, lr=config.lr0, weight_decay=1e-4)
     total     = len(train_loader) * config.epochs
-    scheduler = get_linear_schedule_with_warmup(
-        optimizer,
-        num_warmup_steps=max(1, total // 10),
-        num_training_steps=total,
-    )
+    warmup_steps = int(len(train_loader) * config.warmup_epochs)
+
+    if config.cos_lr:
+        from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
+        warmup_sched = LinearLR(optimizer, start_factor=0.01, total_iters=warmup_steps)
+        cosine_sched = CosineAnnealingLR(
+            optimizer, T_max=total - warmup_steps, eta_min=config.lr0 * config.lrf
+        )
+        scheduler = SequentialLR(optimizer, [warmup_sched, cosine_sched], milestones=[warmup_steps])
+    else:
+        scheduler = get_linear_schedule_with_warmup(
+            optimizer,
+            num_warmup_steps=warmup_steps,
+            num_training_steps=total,
+        )
     model.to(device)
 
     out_dir  = Path(config.output_dir) / config.run_name
@@ -497,6 +507,7 @@ def eval_checkpoint(
     workers: int = 4,
     conf_thresh: float = 0.3,
     imgsz: int = 1024,
+    model_label: str | None = None,
     project: str = WANDB_PROJECT,
 ):
     """Evaluate a saved RT-DETR checkpoint. Returns EvalMetrics.
@@ -508,10 +519,12 @@ def eval_checkpoint(
         always loaded from here (not from the checkpoint) so preprocessing is
         identical to what was used during training.  Only the model *weights*
         come from ``checkpoint_dir``.
+    model_label : str | None
+        Human-readable label for wandb run naming. Defaults to checkpoint dir name.
     project : str
         W&B project name.
     """
-    run_label = Path(checkpoint_dir).name
+    run_label = model_label or Path(checkpoint_dir).name
     init_run(
         project,
         f"eval-rtdetr-{run_label}-{split}",

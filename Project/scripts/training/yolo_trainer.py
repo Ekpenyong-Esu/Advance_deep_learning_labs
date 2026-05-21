@@ -120,6 +120,9 @@ def run_fine_tuning(config: TrainingConfig, aug_variant: str = "none") -> Path:
         "batch":    config.batch,
         "imgsz":    config.imgsz,
         "lr0":      config.lr0,
+        "lrf":      config.lrf,
+        "cos_lr":   config.cos_lr,
+        "warmup_epochs": config.warmup_epochs,
         "device":   config.device,
         "workers":  config.workers,
         "project":  config.output_dir,  # filesystem root — controls WHERE files land

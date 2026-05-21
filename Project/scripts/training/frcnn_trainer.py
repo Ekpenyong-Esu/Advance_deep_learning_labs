@@ -308,9 +308,23 @@ def run_fine_tuning(config: TrainingConfig, data_yaml, aug_variant: str = "none"
         [p for p in model.parameters() if p.requires_grad],
         lr=config.lr0, momentum=0.9, weight_decay=5e-4,
     )
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, T_max=config.epochs, eta_min=config.lr0 * 0.01
-    )
+
+    warmup_steps = int(len(train_loader) * config.warmup_epochs)
+    total_steps  = len(train_loader) * config.epochs
+
+    if config.cos_lr:
+        from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
+        warmup_sched = LinearLR(optimizer, start_factor=0.01, total_iters=warmup_steps)
+        cosine_sched = CosineAnnealingLR(
+            optimizer, T_max=total_steps - warmup_steps, eta_min=config.lr0 * config.lrf
+        )
+        scheduler = SequentialLR(optimizer, [warmup_sched, cosine_sched], milestones=[warmup_steps])
+        step_per_batch = True
+    else:
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=config.epochs, eta_min=config.lr0 * config.lrf
+        )
+        step_per_batch = False
 
     out_dir = Path(config.output_dir) / config.run_name
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -346,7 +360,11 @@ def run_fine_tuning(config: TrainingConfig, data_yaml, aug_variant: str = "none"
             global_step = (epoch - 1) * len(train_loader) + batch_idx
             log_batch_loss(loss.item(), global_step)
 
-        scheduler.step()
+            if step_per_batch:
+                scheduler.step()
+
+        if not step_per_batch:
+            scheduler.step()
 
         map_result, _, _ = _evaluate_loader(model, val_loader, device)
         # FIX: extract and log both mAP@0.5 and mAP@0.5:0.95
@@ -394,6 +412,7 @@ def eval_checkpoint(
     conf_thresh: float = 0.3,
     imgsz: int = 1024,
     num_classes: int = 1,
+    model_label: str | None = None,
     project: str = WANDB_PROJECT,
 ):
     """Evaluate a saved Faster R-CNN checkpoint. Returns EvalMetrics.
@@ -403,10 +422,12 @@ def eval_checkpoint(
     num_classes : int
         Number of foreground classes the checkpoint was trained with. Must match
         the saved model's head. Default 1 (single-class NVD car detector).
+    model_label : str | None
+        Human-readable label for wandb run naming. Defaults to checkpoint stem.
     project : str
         W&B project name.
     """
-    run_label = Path(weights).stem
+    run_label = model_label or Path(weights).stem
     init_run(
         project,
         f"eval-frcnn-{run_label}-{split}",

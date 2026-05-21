@@ -10,8 +10,7 @@ single source of truth for the shape of a training run and its outcomes.
 from dataclasses import dataclass
 
 # Single source of truth for the W&B project name.
-WANDB_PROJECT = "nvd-car-detection"
-
+WANDB_PROJECT = "nvd-car-detection-refactor"
 
 @dataclass
 class TrainingConfig:
@@ -21,7 +20,7 @@ class TrainingConfig:
     data_yaml:   str                         # path to configs/data.yaml (YOLO) or "" for DETR
     epochs:      int        = 50
     batch:       int        = 16
-    imgsz:       int        = 1024
+    imgsz:       int        = 640
     lr0:         float      = 0.01
     freeze:      int | None = None           # layers to freeze; None = no freezing
     project:     str        = WANDB_PROJECT
@@ -40,6 +39,10 @@ class TrainingConfig:
     hsv_h:       float      = 0.015          # HSV-Hue augmentation
     hsv_s:       float      = 0.7            # HSV-Saturation augmentation
     hsv_v:       float      = 0.4            # HSV-Value augmentation
+    # Scheduler / warmup
+    cos_lr:      bool       = True           # cosine LR decay
+    lrf:         float      = 0.01           # final LR factor (final_lr = lr0 * lrf)
+    warmup_epochs: float    = 5.0            # warmup epochs (can be fractional)
 
     def __post_init__(self):
         if self.epochs <= 0:

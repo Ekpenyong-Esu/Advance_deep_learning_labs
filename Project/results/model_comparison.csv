@@ -1,12 +1,2 @@
 Model,Pretrain,Fine-tuned,Split,mAP@0.5,mAP@0.5:0.95,Precision,Recall,FPS,Notes
-yolov9c,COCO,False,val,0.0016,0.0004,0.0216,0.0703,151.0,
-YOLOv9c (fine-tuned),COCO → NVD,True,val,0.9944,0.8839,0.9883,0.9916,61.1,
-rtdetr-r50vd,COCO,False,val,0.0062,0.0020,0.0325,0.0692,8.1,
-rtdetr-r50vd,COCO → NVD,True,val,0.9847,0.8375,0.9762,0.9696,7.4,
-fasterrcnn-resnet50-fpn,COCO,False,val,0.0027,0.0018,0.0202,0.0010,11.3,
-fasterrcnn-resnet50-fpn,COCO → NVD,True,val,0.9786,0.8150,0.9830,0.9692,9.9,
-yolov9_snow_best,COCO → NVD,True,val,0.9940,0.8787,0.9882,0.9905,61.2,
-yolov9_full_best,COCO → NVD,True,val,0.9942,0.8787,0.9891,0.9893,61.2,
-rtdetr-r50vd,COCO → NVD,True,val,0.9759,0.8331,0.9671,0.9805,7.4,
-rtdetr-r50vd,COCO → NVD,True,val,0.9857,0.8440,0.9727,0.9770,7.4,
-fasterrcnn-resnet50-fpn,COCO → NVD,True,val,0.9888,0.8115,0.9852,0.9826,6.7,
+yolov9c,COCO,False,val,0.0017,0.0005,0.0266,0.0312,143.1,
