@@ -140,6 +140,10 @@ def run_fine_tuning(config: TrainingConfig, aug_variant: str = "none") -> Path:
         "hsv_s": config.hsv_s,
         "hsv_v": config.hsv_v,
         # -------------------------
+        # GRADIENT ACCUMULATION
+        # -------------------------
+        "nbs": config.nbs,
+        # -------------------------
         # EARLY STOPPING
         # -------------------------
         "patience": config.patience,
@@ -192,6 +196,7 @@ def eval_checkpoint(
     workers: int = 4,
     model_label: str | None = None,
     project: str = WANDB_PROJECT,
+    augment: bool = False,
 ) -> EvalMetrics:
     """
     Evaluate a saved YOLOv9 checkpoint on a dataset split.
@@ -209,6 +214,9 @@ def eval_checkpoint(
         Defaults to the checkpoint filename stem.
     project : str
         W&B project name.
+    augment : bool
+        If True, enable Test-Time Augmentation (multi-scale + flip inference).
+        Improves small-object recall at the cost of ~3× slower inference.
     """
     weights = Path(weights)
     if not weights.exists():
@@ -220,7 +228,7 @@ def eval_checkpoint(
     init_run(
         project,
         f"eval-{label}-{split}",
-        config={"weights": str(weights), "split": split},
+        config={"weights": str(weights), "split": split, "tta": augment},
     )
 
     model = YOLO(str(weights))
@@ -229,6 +237,7 @@ def eval_checkpoint(
         split=split,
         device=device,
         workers=workers,
+        augment=augment,
         verbose=True,
     )
     metrics = parse_ultralytics_results(

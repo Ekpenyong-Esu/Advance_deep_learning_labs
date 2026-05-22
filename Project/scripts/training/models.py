@@ -20,7 +20,7 @@ class TrainingConfig:
     data_yaml:   str                         # path to configs/data.yaml (YOLO) or "" for DETR
     epochs:      int        = 50
     batch:       int        = 16
-    imgsz:       int        = 640
+    imgsz:       int        = 1024
     lr0:         float      = 0.01
     freeze:      int | None = None           # layers to freeze; None = no freezing
     project:     str        = WANDB_PROJECT
@@ -41,6 +41,7 @@ class TrainingConfig:
     hsv_v:       float      = 0.4            # HSV-Value augmentation
     # Scheduler / warmup
     cos_lr:      bool       = True           # cosine LR decay
+    nbs:         int        = 64             # nominal batch size for accumulation (effective batch)
     lrf:         float      = 0.01           # final LR factor (final_lr = lr0 * lrf)
     warmup_epochs: float    = 5.0            # warmup epochs (can be fractional)
 

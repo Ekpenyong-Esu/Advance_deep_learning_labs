@@ -38,6 +38,8 @@ from .frcnn_trainer import run_zero_shot_eval as run_frcnn_zero_shot_eval
 
 from .results_writer import save_zero_shot_result, append_comparison_row
 
+from .sahi_eval import eval_yolo_sahi, eval_frcnn_sahi
+
 __all__ = [
     "TrainingConfig",
     "EvalMetrics",
@@ -52,4 +54,6 @@ __all__ = [
     "run_frcnn_zero_shot_eval",
     "save_zero_shot_result",
     "append_comparison_row",
+    "eval_yolo_sahi",
+    "eval_frcnn_sahi",
 ]

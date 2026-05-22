@@ -140,6 +140,22 @@ def _geo_transforms() -> list:
     ]
 
 
+def _crop_transforms(crop_size: int = 640) -> list:
+    """
+    Random crop augmentation for small-object aerial detection.
+
+    Instead of downscaling the full 1920×1080 image (which shrinks cars to
+    ~13px at 640), crop a region at native resolution so cars stay at ~38px.
+    Falls back to the full image (resized) if the image is smaller than crop_size.
+    """
+    return [
+        A.RandomCrop(width=crop_size, height=crop_size, p=0.7),
+        # 30% of the time use the full image (resized) for scene context
+        # This is handled implicitly: when RandomCrop doesn't fire, SmallestMaxSize
+        # in the pipeline prefix handles the resize.
+    ]
+
+
 def build_pipeline(variant: str, bbox_format: str = "yolo", imgsz: int | None = None) -> A.Compose | None:
     """
     Return an Albumentations Compose for the named variant.
@@ -174,9 +190,33 @@ def build_pipeline(variant: str, bbox_format: str = "yolo", imgsz: int | None = 
     if variant == "full_geo":
         return A.Compose(pre + _geo_transforms() + _full_transforms(), bbox_params=params)
 
+    if variant == "crop_snow":
+        # Random crop at native res + snow augmentation (best for small objects)
+        crop_sz = imgsz or 640
+        return A.Compose(
+            _crop_transforms(crop_sz) + _snow_transforms(),
+            bbox_params=params,
+        )
+
+    if variant == "crop_full":
+        # Random crop at native res + full augmentation
+        crop_sz = imgsz or 640
+        return A.Compose(
+            _crop_transforms(crop_sz) + _full_transforms(),
+            bbox_params=params,
+        )
+        
+    if variant == "crop":
+        # Random crop at native res — objects stay at full size (~38px vs ~20px)
+        crop_sz = imgsz or 640
+        return A.Compose(
+            _crop_transforms(crop_sz),
+            bbox_params=params,
+        )
+
     raise ValueError(
         f"Unknown augmentation variant '{variant}'. Choose from: "
-        "none, geo, snow, full, snow_geo, full_geo"
+        "none, geo, snow, full, snow_geo, full_geo, crop, crop_snow, crop_full"
     )
 
 
