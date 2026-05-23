@@ -20,7 +20,7 @@ class TrainingConfig:
     data_yaml:   str                         # path to configs/data.yaml (YOLO) or "" for DETR
     epochs:      int        = 50
     batch:       int        = 16
-    imgsz:       int        = 1024
+    imgsz:       int        = 1280 # imgsz=1280,
     lr0:         float      = 0.01
     freeze:      int | None = None           # layers to freeze; None = no freezing
     project:     str        = WANDB_PROJECT

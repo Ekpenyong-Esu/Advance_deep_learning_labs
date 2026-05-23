@@ -1,5 +1,4 @@
 Model,Pretrain,Fine-tuned,Split,mAP@0.5,mAP@0.5:0.95,Precision,Recall,FPS,Notes
-yolov9c,COCO,False,val,0.0017,0.0005,0.0266,0.0312,143.3,
-YOLOv9c (fine-tuned),COCO → NVD,True,val,0.5322,0.3532,0.7927,0.4523,61.0,
-"YOLOv9c (1280, no aug)",COCO → NVD,True,val,0.7085,0.4265,0.7116,0.6495,41.0,
-rtdetr-r50vd,COCO,False,val,0.0188,0.0069,0.0659,0.1320,11.4,
+YOLOv9c (fine-tuned),COCO → NVD,True,val,0.6019,0.3562,0.6940,0.5576,40.9,
+"YOLOv9c (1280, no aug)",COCO → NVD,True,val,0.6019,0.3562,0.6940,0.5576,41.0,
+rtdetr-r50vd,COCO,False,val,0.0188,0.0069,0.0659,0.1320,11.1,
