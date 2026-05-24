@@ -317,3 +317,163 @@ def eval_frcnn_sahi(
     print(f"  Slices      : {slice_width}×{slice_height}, overlap={overlap_ratio}")
 
     return metrics
+
+
+def eval_detr_sahi(
+    checkpoint_dir: str | Path,
+    val_json: str | Path,
+    images_dir: str | Path,
+    *,
+    split: str = "val",
+    device: str = "0",
+    slice_height: int = 640,
+    slice_width: int = 640,
+    overlap_ratio: float = 0.2,
+    conf_thresh: float = 0.25,
+    model_label: str | None = None,
+    project: str = WANDB_PROJECT,
+) -> EvalMetrics:
+    """
+    Evaluate an RT-DETR checkpoint using manual SAHI-style sliced inference.
+
+    Parameters
+    ----------
+    checkpoint_dir : path to the saved RT-DETR checkpoint directory
+    val_json : COCO-format annotation JSON for the split
+    images_dir : directory containing images
+    slice_height, slice_width : tile size (default 640×640)
+    overlap_ratio : overlap between tiles (default 0.2 = 20%)
+    conf_thresh : confidence threshold for predictions
+    """
+    import torchvision
+    from PIL import Image
+    from pycocotools.coco import COCO
+    from transformers import RTDetrForObjectDetection, RTDetrImageProcessor
+
+    checkpoint_dir = Path(checkpoint_dir)
+    label = model_label or f"{checkpoint_dir.name}_sahi"
+
+    init_run(project, f"sahi-{label}-{split}", config={
+        "checkpoint": str(checkpoint_dir), "split": split,
+        "slice_size": f"{slice_width}x{slice_height}",
+        "overlap": overlap_ratio,
+    })
+
+    device_torch = torch.device(f"cuda:{device}" if device.isdigit() else device)
+
+    # Load RT-DETR model
+    model = RTDetrForObjectDetection.from_pretrained(str(checkpoint_dir))
+    model.to(device_torch)
+    model.eval()
+    processor = RTDetrImageProcessor.from_pretrained(str(checkpoint_dir))
+
+    # Load ground truth
+    coco = COCO(str(val_json))
+    image_ids = list(coco.imgs.keys())
+
+    metric = MeanAveragePrecision(iou_type="bbox")
+    all_preds, all_targets = [], []
+
+    for img_id in image_ids:
+        img_info = coco.imgs[img_id]
+        img_path = Path(images_dir) / img_info["file_name"]
+        img = Image.open(img_path).convert("RGB")
+        w_img, h_img = img.size
+        import numpy as np
+        img_np = np.array(img)
+
+        pred_boxes_all = []
+        pred_scores_all = []
+
+        # Manual slicing
+        step_y = int(slice_height * (1 - overlap_ratio))
+        step_x = int(slice_width * (1 - overlap_ratio))
+
+        for y in range(0, h_img, step_y):
+            for x in range(0, w_img, step_x):
+                x2 = min(x + slice_width, w_img)
+                y2 = min(y + slice_height, h_img)
+                crop = img_np[y:y2, x:x2]
+                crop_pil = Image.fromarray(crop)
+
+                inputs = processor(images=crop_pil, return_tensors="pt")
+                inputs = {k: v.to(device_torch) for k, v in inputs.items()}
+
+                with torch.no_grad():
+                    outputs = model(**inputs)
+
+                # Post-process
+                target_sizes = torch.tensor([[y2 - y, x2 - x]], device=device_torch)
+                results = processor.post_process_object_detection(
+                    outputs, target_sizes=target_sizes, threshold=conf_thresh
+                )[0]
+
+                boxes = results["boxes"].cpu().numpy()
+                scores = results["scores"].cpu().numpy()
+
+                for box, score in zip(boxes, scores):
+                    # Shift box coordinates back to full image
+                    pred_boxes_all.append([
+                        box[0] + x, box[1] + y,
+                        box[2] + x, box[3] + y,
+                    ])
+                    pred_scores_all.append(float(score))
+
+        # NMS on merged predictions
+        if pred_boxes_all:
+            boxes_t = torch.tensor(pred_boxes_all, dtype=torch.float32)
+            scores_t = torch.tensor(pred_scores_all, dtype=torch.float32)
+            keep = torchvision.ops.nms(boxes_t, scores_t, iou_threshold=0.5)
+            pred_boxes_all = boxes_t[keep].tolist()
+            pred_scores_all = scores_t[keep].tolist()
+
+        # Ground truth for this image
+        anns = coco.loadAnns(coco.getAnnIds(imgIds=img_id))
+        gt_boxes = []
+        for ann in anns:
+            bx, by, bw, bh = ann["bbox"]
+            gt_boxes.append([bx, by, bx + bw, by + bh])
+
+        pred_dict = {
+            "boxes": torch.tensor(pred_boxes_all, dtype=torch.float32).reshape(-1, 4),
+            "scores": torch.tensor(pred_scores_all, dtype=torch.float32),
+            "labels": torch.zeros(len(pred_boxes_all), dtype=torch.int64),
+        }
+        gt_dict = {
+            "boxes": torch.tensor(gt_boxes, dtype=torch.float32).reshape(-1, 4),
+            "labels": torch.zeros(len(gt_boxes), dtype=torch.int64),
+        }
+
+        metric.update([pred_dict], [gt_dict])
+        all_preds.append(pred_dict)
+        all_targets.append(gt_dict)
+
+    map_result = metric.compute()
+    map50 = float(map_result.get("map_50", 0.0))
+    map50_95 = float(map_result.get("map", 0.0))
+    precision, recall = best_precision_recall(all_preds, all_targets)
+
+    metrics = EvalMetrics(
+        model=label,
+        pretrain="COCO → NVD",
+        fine_tuned=True,
+        split=split,
+        map50=map50,
+        map50_95=map50_95,
+        precision=precision,
+        recall=recall,
+        fps=0.0,
+    )
+
+    log_eval(metrics)
+    log_eval_summary(metrics)
+    finish()
+
+    print(f"\n[SAHI-DETR] {label} ({split} set)")
+    print(f"  mAP@0.5     : {map50:.4f}")
+    print(f"  mAP@0.5:0.95: {map50_95:.4f}")
+    print(f"  Precision   : {precision:.4f}")
+    print(f"  Recall      : {recall:.4f}")
+    print(f"  Slices      : {slice_width}×{slice_height}, overlap={overlap_ratio}")
+
+    return metrics

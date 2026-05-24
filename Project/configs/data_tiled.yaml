@@ -1,0 +1,21 @@
+# configs/data_tiled.yaml
+# -----------------------
+# YOLO dataset configuration for the TILED Nordic Vehicle Dataset.
+# Images are pre-sliced into 640×640 overlapping tiles at native resolution.
+# Cars remain at ~38px (vs ~20px in full-image resized mode).
+#
+# Uses RECORDING-LEVEL splits (avoids temporal leakage between train/val).
+# Generate with:
+#   python scripts/tile_dataset.py --tile-size 640 --overlap 0.2 --splits train_rec_sub val_rec test
+#
+#
+#   model.train(data="configs/data_tiled.yaml", imgsz=640, ...)
+
+path: /home/jovyan/Advance_AI/Project/data/tiled     # tiled dataset root
+train: train_rec_sub.txt
+val:   val_rec.txt
+test:  test.txt
+
+nc: 1
+names:
+  0: car

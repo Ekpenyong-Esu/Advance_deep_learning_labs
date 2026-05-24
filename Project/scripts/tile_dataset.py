@@ -194,7 +194,7 @@ def main():
     parser.add_argument("--tile-size", type=int, default=640, help="Tile width/height in pixels")
     parser.add_argument("--overlap", type=float, default=0.2, help="Overlap fraction between tiles")
     parser.add_argument("--min-area", type=float, default=0.3, help="Min fraction of box area in tile to keep")
-    parser.add_argument("--splits", nargs="+", default=["train", "val", "test"], help="Splits to process")
+    parser.add_argument("--splits", nargs="+", default=["train_rec_sub", "val_rec", "test"], help="Splits to process")
     parser.add_argument("--data-root", type=str, default="data/raw", help="Root of raw data")
     parser.add_argument("--output", type=str, default="data/tiled", help="Output directory")
     parser.add_argument("--keep-empty", action="store_true", help="Keep tiles with no objects")

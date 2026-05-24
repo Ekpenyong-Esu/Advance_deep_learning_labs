@@ -141,20 +141,77 @@ def _geo_transforms() -> list:
     ]
 
 
-def _crop_transforms(crop_size: int = 640) -> list:
-    """
-    Random crop augmentation for small-object aerial detection.
+# ---------------------------------------------------------------------------
+# Object-aware crop pipeline (FRCNN / DETR)
+# ---------------------------------------------------------------------------
 
-    Instead of downscaling the full 1920×1080 image (which shrinks cars to
-    ~13px at 640), crop a region at native resolution so cars stay at ~38px.
-    Falls back to the full image (resized) if the image is smaller than crop_size.
+class _ObjectAwarePipeline:
     """
-    return [
-        A.RandomCrop(width=crop_size, height=crop_size, p=0.7),
-        # 30% of the time use the full image (resized) for scene context
-        # This is handled implicitly: when RandomCrop doesn't fire, SmallestMaxSize
-        # in the pipeline prefix handles the resize.
-    ]
+    Object-aware crop for FRCNN/DETR — drop-in replacement for A.Compose.
+
+    Instead of random cropping (which misses all cars ~50% of the time in
+    sparse aerial images), this picks a random bounding box and centers the
+    640×640 crop on it with jitter.  Guarantees at least one car is always
+    in the crop, preserving native resolution (~38px cars).
+
+    Delegates all bbox clipping/filtering to Albumentations (via A.Crop +
+    BboxParams) rather than reimplementing it.
+    """
+
+    def __init__(self, crop_size: int = 640, bbox_format: str = "pascal_voc",
+                 weather_transforms: list | None = None, p: float = 0.7):
+        self.crop_size = crop_size
+        self.bbox_format = bbox_format
+        self._weather_list = weather_transforms or []
+        self._params = _bbox_params(bbox_format)
+        self.p = p
+
+    def __call__(self, image, bboxes, class_labels, **kwargs):
+        h, w = image.shape[:2]
+
+        # Skip crop if: probability miss, image too small, or no bboxes
+        if (random.random() > self.p or
+                h < self.crop_size or w < self.crop_size or not bboxes):
+            if self._weather_list:
+                # Weather-only (no spatial transform) — skip bbox_params to avoid warning
+                pipe = A.Compose(self._weather_list)
+                result = pipe(image=image)
+                return {"image": result["image"], "bboxes": bboxes, "class_labels": class_labels}
+            return {"image": image, "bboxes": bboxes, "class_labels": class_labels}
+
+        # Pick a random bbox and compute crop position
+        bbox = random.choice(bboxes)
+        cx, cy = self._bbox_center(bbox, w, h)
+
+        # Jitter ±25% of crop size so object isn't always dead center
+        jitter_x = random.uniform(-0.25, 0.25) * self.crop_size
+        jitter_y = random.uniform(-0.25, 0.25) * self.crop_size
+
+        x0 = int(cx + jitter_x - self.crop_size / 2)
+        y0 = int(cy + jitter_y - self.crop_size / 2)
+        x0 = max(0, min(x0, w - self.crop_size))
+        y0 = max(0, min(y0, h - self.crop_size))
+        x1 = x0 + self.crop_size
+        y1 = y0 + self.crop_size
+
+        # Let Albumentations handle crop + bbox adjustment automatically
+        transforms = [A.Crop(x_min=x0, y_min=y0, x_max=x1, y_max=y1, p=1.0)]
+        transforms.extend(self._weather_list)
+        pipe = A.Compose(transforms, bbox_params=self._params)
+        return pipe(image=image, bboxes=bboxes, class_labels=class_labels, **kwargs)
+
+    def _bbox_center(self, bbox, img_w, img_h):
+        """Get center in pixel coordinates."""
+        if self.bbox_format == "pascal_voc":  # [x1, y1, x2, y2] pixels
+            return (bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2
+        if self.bbox_format == "coco":  # [x, y, w, h] pixels
+            return bbox[0] + bbox[2] / 2, bbox[1] + bbox[3] / 2
+        # yolo: [cx, cy, w, h] normalized
+        return bbox[0] * img_w, bbox[1] * img_h
+
+    def __repr__(self):
+        return (f"{self.__class__.__name__}(crop={self.crop_size}, "
+                f"fmt={self.bbox_format}, weather={bool(self._weather_list)}, p={self.p})")
 
 
 def build_pipeline(variant: str, bbox_format: str = "yolo", imgsz: int | None = None) -> A.Compose | None:
@@ -192,27 +249,23 @@ def build_pipeline(variant: str, bbox_format: str = "yolo", imgsz: int | None = 
         return A.Compose(pre + _geo_transforms() + _full_transforms(), bbox_params=params)
 
     if variant == "crop":
-        # Random crop at native res — objects stay at full size (~38px vs ~20px)
-        crop_sz = imgsz or 640
-        return A.Compose(
-            _crop_transforms(crop_sz),
-            bbox_params=params,
+        # Object-aware crop at native res — guaranteed to include a car
+        return _ObjectAwarePipeline(
+            crop_size=640, bbox_format=bbox_format, weather_transforms=None, p=0.7,
         )
 
     if variant == "crop_snow":
-        # Random crop at native res + snow augmentation (best for small objects)
-        crop_sz = imgsz or 640
-        return A.Compose(
-            _crop_transforms(crop_sz) + _snow_transforms(),
-            bbox_params=params,
+        # Object-aware crop + snow augmentation
+        return _ObjectAwarePipeline(
+            crop_size=640, bbox_format=bbox_format,
+            weather_transforms=_snow_transforms(), p=0.7,
         )
 
     if variant == "crop_full":
-        # Random crop at native res + full augmentation
-        crop_sz = imgsz or 640
-        return A.Compose(
-            _crop_transforms(crop_sz) + _full_transforms(),
-            bbox_params=params,
+        # Object-aware crop + full augmentation
+        return _ObjectAwarePipeline(
+            crop_size=640, bbox_format=bbox_format,
+            weather_transforms=_full_transforms(), p=0.7,
         )
 
     raise ValueError(
@@ -235,20 +288,21 @@ def build_detr_pipeline(variant: str, imgsz: int | None = None):
 # Ultralytics YOLO injection
 # ---------------------------------------------------------------------------
 
-class _NativeResCrop:
+class _ObjectAwareCrop:
     """
-    Ultralytics-compatible transform that applies a random crop at NATIVE resolution.
+    Object-aware crop for Ultralytics YOLO at native resolution.
 
-    In ultralytics, ``load_image`` resizes the image to ``imgsz`` before any
-    transforms fire.  This means Albumentations-based crops operate on the
-    already-downscaled image — defeating the purpose of resolution preservation.
+    Instead of random cropping (which misses all cars ~50% of the time in
+    sparse aerial images), this picks a random bounding box and centers the
+    640×640 crop on it with jitter.  Guarantees at least one car is always
+    in the crop.
 
-    This transform monkey-patches the dataset's ``load_image`` to return native-
-    resolution images and applies the crop + resize here (before LetterBox).
+    Combined with ``_patch_load_image_native`` (which skips ultralytics'
+    built-in resize), the flow becomes:
+        load_image (native 1920×1080) → _ObjectAwareCrop (640 crop around car
+        → resize to imgsz=1024) → standard pipeline (LetterBox, HSV, Flip)
 
-    The image flow becomes:
-        load_image (native 1920×1080) → _NativeResCrop (→ 640×640 crop → resize to imgsz)
-        → standard pipeline (LetterBox, HSV, Flip, etc.)
+    Result: Cars go from ~20px (standard resize) to ~61px (crop + upscale).
     """
 
     def __init__(self, crop_size: int = 640, imgsz: int = 1024, p: float = 0.7):
@@ -259,10 +313,12 @@ class _NativeResCrop:
     def __call__(self, labels: dict) -> dict:
         img = labels["img"]
         h, w = img.shape[:2]
+        bboxes = labels.get("bboxes", np.empty((0, 4)))
 
-        # Decide whether to crop or just resize the full image
-        if random.random() > self.p or h < self.crop_size or w < self.crop_size:
-            # No crop — resize full image to imgsz (standard behavior)
+        # Skip crop if: probability miss, image too small, or no bboxes
+        if (random.random() > self.p or
+                h < self.crop_size or w < self.crop_size or len(bboxes) == 0):
+            # Fallback: resize full image to imgsz (standard behavior)
             r = self.imgsz / max(h, w)
             if r != 1:
                 new_w = min(int(round(w * r)), self.imgsz)
@@ -272,79 +328,80 @@ class _NativeResCrop:
             labels["resized_shape"] = img.shape[:2]
             return labels
 
-        # Random crop position
-        y_max = h - self.crop_size
-        x_max = w - self.crop_size
-        y0 = random.randint(0, y_max)
-        x0 = random.randint(0, x_max)
+        # --- Object-aware crop: center on a random bbox ---
+        idx = random.randint(0, len(bboxes) - 1)
+        cx_abs = bboxes[idx, 0] * w
+        cy_abs = bboxes[idx, 1] * h
+
+        # Jitter ±25% of crop size so object isn't always dead center
+        jitter_x = random.uniform(-0.25, 0.25) * self.crop_size
+        jitter_y = random.uniform(-0.25, 0.25) * self.crop_size
+
+        x0 = int(cx_abs + jitter_x - self.crop_size / 2)
+        y0 = int(cy_abs + jitter_y - self.crop_size / 2)
+        x0 = max(0, min(x0, w - self.crop_size))
+        y0 = max(0, min(y0, h - self.crop_size))
         x1 = x0 + self.crop_size
         y1 = y0 + self.crop_size
 
         # Crop the image
         img = img[y0:y1, x0:x1].copy()
 
-        # Adjust bounding boxes (normalized [cx, cy, w, h] format)
-        if "bboxes" in labels and len(labels["bboxes"]) > 0:
-            bboxes = labels["bboxes"].copy()  # (N, 4) normalized
+        # Adjust bounding boxes (normalized [cx, cy, w, h] YOLO format)
+        bboxes_copy = bboxes.copy()
+        cx_all = bboxes_copy[:, 0] * w
+        cy_all = bboxes_copy[:, 1] * h
+        bw_abs = bboxes_copy[:, 2] * w
+        bh_abs = bboxes_copy[:, 3] * h
 
-            # Convert to absolute pixels in original image
-            cx_abs = bboxes[:, 0] * w
-            cy_abs = bboxes[:, 1] * h
-            bw_abs = bboxes[:, 2] * w
-            bh_abs = bboxes[:, 3] * h
+        bx1 = cx_all - bw_abs / 2
+        by1 = cy_all - bh_abs / 2
+        bx2 = cx_all + bw_abs / 2
+        by2 = cy_all + bh_abs / 2
 
-            # Box corners
-            bx1 = cx_abs - bw_abs / 2
-            by1 = cy_abs - bh_abs / 2
-            bx2 = cx_abs + bw_abs / 2
-            by2 = cy_abs + bh_abs / 2
+        # Clip to crop region
+        cbx1 = np.clip(bx1, x0, x1)
+        cby1 = np.clip(by1, y0, y1)
+        cbx2 = np.clip(bx2, x0, x1)
+        cby2 = np.clip(by2, y0, y1)
 
-            # Clip to crop region
-            bx1_c = np.clip(bx1, x0, x1)
-            by1_c = np.clip(by1, y0, y1)
-            bx2_c = np.clip(bx2, x0, x1)
-            by2_c = np.clip(by2, y0, y1)
+        orig_area = bw_abs * bh_abs
+        clip_w = cbx2 - cbx1
+        clip_h = cby2 - cby1
+        clip_area = clip_w * clip_h
 
-            # Compute clipped area vs original area
-            orig_area = bw_abs * bh_abs
-            clip_w = bx2_c - bx1_c
-            clip_h = by2_c - by1_c
-            clip_area = clip_w * clip_h
+        # Keep boxes with ≥30% area inside crop and minimum pixel size
+        keep = (clip_area / (orig_area + 1e-8)) >= 0.3
+        keep &= (clip_w > 2) & (clip_h > 2)
 
-            # Keep boxes with >= 30% area inside crop
-            keep = (clip_area / (orig_area + 1e-8)) >= 0.3
-            keep &= (clip_w > 2) & (clip_h > 2)  # minimum size
+        if keep.any():
+            new_cx = ((cbx1[keep] + cbx2[keep]) / 2 - x0) / self.crop_size
+            new_cy = ((cby1[keep] + cby2[keep]) / 2 - y0) / self.crop_size
+            new_w = clip_w[keep] / self.crop_size
+            new_h = clip_h[keep] / self.crop_size
 
-            if keep.any():
-                # Convert to crop-local normalized coordinates
-                new_cx = ((bx1_c[keep] + bx2_c[keep]) / 2 - x0) / self.crop_size
-                new_cy = ((by1_c[keep] + by2_c[keep]) / 2 - y0) / self.crop_size
-                new_w = clip_w[keep] / self.crop_size
-                new_h = clip_h[keep] / self.crop_size
+            labels["bboxes"] = np.column_stack([new_cx, new_cy, new_w, new_h])
+            if "cls" in labels:
+                labels["cls"] = labels["cls"][keep]
+            if "segments" in labels:
+                labels["segments"] = [s for s, k in zip(labels["segments"], keep) if k]
+            if "keypoints" in labels:
+                labels["keypoints"] = labels["keypoints"][keep]
+        else:
+            # Edge case: bbox fell outside (extreme jitter). Fallback to full resize.
+            r = self.imgsz / max(h, w)
+            if r != 1:
+                oh, ow = h, w
+                new_w_r = min(int(round(ow * r)), self.imgsz)
+                new_h_r = min(int(round(oh * r)), self.imgsz)
+                full_img = labels.get("_orig_img", labels["img"])
+                img = cv2.resize(full_img, (new_w_r, new_h_r),
+                                 interpolation=cv2.INTER_LINEAR)
+            labels["img"] = img
+            labels["resized_shape"] = img.shape[:2]
+            return labels
 
-                labels["bboxes"] = np.column_stack([new_cx, new_cy, new_w, new_h])
-                # Filter cls and other per-box arrays
-                if "cls" in labels:
-                    labels["cls"] = labels["cls"][keep]
-                if "segments" in labels:
-                    labels["segments"] = [s for s, k in zip(labels["segments"], keep) if k]
-                if "keypoints" in labels:
-                    labels["keypoints"] = labels["keypoints"][keep]
-            else:
-                # No boxes survived — return full image resized instead
-                img = labels.get("_orig_img", img)
-                r = self.imgsz / max(labels["ori_shape"])
-                if r != 1:
-                    oh, ow = labels["ori_shape"]
-                    new_w_r = min(int(round(ow * r)), self.imgsz)
-                    new_h_r = min(int(round(oh * r)), self.imgsz)
-                    img = cv2.resize(labels.get("_orig_img", img),
-                                     (new_w_r, new_h_r), interpolation=cv2.INTER_LINEAR)
-                labels["img"] = img
-                labels["resized_shape"] = img.shape[:2]
-                return labels
-
-        # Resize crop to imgsz (upscale: 640→1024 makes cars ~61px!)
+        # Resize crop to imgsz (upscale: 640→1024 makes cars ~61px)
         r = self.imgsz / self.crop_size
         if r != 1:
             new_sz = int(round(self.crop_size * r))
@@ -449,14 +506,14 @@ def inject_into_yolo(model, variant: str) -> None:
             # 1. Monkey-patch load_image to skip resize
             _patch_load_image_native(ds)
 
-            # 2. Insert NativeResCrop as FIRST transform
-            crop_transform = _NativeResCrop(crop_size=640, imgsz=imgsz, p=0.7)
+            # 2. Insert ObjectAwareCrop as FIRST transform
+            crop_transform = _ObjectAwareCrop(crop_size=640, imgsz=imgsz, p=0.7)
             if hasattr(ds, "transforms") and hasattr(ds.transforms, "transforms"):
                 ds.transforms.transforms.insert(0, crop_transform)
-                print(f"[Augmentation] Injected NativeResCrop(640→{imgsz}) as first transform. "
+                print(f"[Augmentation] Injected ObjectAwareCrop(640→{imgsz}) as first transform. "
                       f"Cars at ~38px native → ~{int(38 * imgsz / 640)}px after upscale.")
             else:
-                print("[Augmentation] WARNING: Could not insert NativeResCrop transform.")
+                print("[Augmentation] WARNING: Could not insert ObjectAwareCrop transform.")
                 return
 
             # 3. Also inject weather augmentation if present (snow/full)

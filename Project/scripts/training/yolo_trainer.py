@@ -155,7 +155,11 @@ def run_fine_tuning(config: TrainingConfig, aug_variant: str = "none") -> Path:
     # W&B run uses config.project as the dashboard project name
     init_run(config.project, config.run_name, config=train_kwargs)
 
-    model = YOLO(f"{config.model_name}.pt")
+    # If model_name already has an extension (.yaml or .pt), use as-is
+    if config.model_name.endswith((".yaml", ".pt")):
+        model = YOLO(config.model_name)
+    else:
+        model = YOLO(f"{config.model_name}.pt")
 
     if aug_variant != "none":
         
