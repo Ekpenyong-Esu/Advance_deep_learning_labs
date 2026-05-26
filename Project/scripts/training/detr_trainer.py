@@ -396,7 +396,7 @@ def run_fine_tuning(config: TrainingConfig, train_json, val_json, images_dir, au
               f"(requested {config.freeze})")
 
     trainable = [p for p in model.parameters() if p.requires_grad]
-    optimizer = torch.optim.AdamW(trainable, lr=config.lr0, weight_decay=1e-4)
+    optimizer = torch.optim.AdamW(trainable, lr=config.lr0, weight_decay=config.weight_decay)
     total     = len(train_loader) * config.epochs
     warmup_steps = int(len(train_loader) * config.warmup_epochs)
 

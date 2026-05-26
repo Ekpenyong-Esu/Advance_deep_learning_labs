@@ -42,8 +42,12 @@ class TrainingConfig:
     # Scheduler / warmup
     cos_lr:      bool       = True           # cosine LR decay
     nbs:         int        = 64             # nominal batch size for accumulation (effective batch)
+    # Optimizer
+    optimizer:   str | None = None           
     lrf:         float      = 0.01           # final LR factor (final_lr = lr0 * lrf)
     warmup_epochs: float    = 5.0            # warmup epochs (can be fractional)
+    weight_decay: float = 0.0005  # L2 regularization
+    pretrained_weights: str = ""  # path to .pt weights to load into yaml model; "" = no transfer
 
     def __post_init__(self):
         if self.epochs <= 0:

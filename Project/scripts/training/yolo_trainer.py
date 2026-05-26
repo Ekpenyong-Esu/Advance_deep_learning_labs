@@ -147,7 +147,10 @@ def run_fine_tuning(config: TrainingConfig, aug_variant: str = "none") -> Path:
         # EARLY STOPPING
         # -------------------------
         "patience": config.patience,
+        "weight_decay": config.weight_decay,
     }
+    if config.optimizer is not None:
+        train_kwargs["optimizer"] = config.optimizer
     if config.freeze is not None:
         train_kwargs["freeze"] = config.freeze
 
@@ -157,6 +160,12 @@ def run_fine_tuning(config: TrainingConfig, aug_variant: str = "none") -> Path:
 
     # If model_name already has an extension (.yaml or .pt), use as-is
     if config.model_name.endswith((".yaml", ".pt")):
+        model = YOLO(config.model_name)
+        if config.pretrained_weights:
+            model.load(config.pretrained_weights)
+            print(f"[INFO] Loaded pretrained weights from {config.pretrained_weights}")
+            
+    elif config.model_name.endswith(".pt"):
         model = YOLO(config.model_name)
     else:
         model = YOLO(f"{config.model_name}.pt")
