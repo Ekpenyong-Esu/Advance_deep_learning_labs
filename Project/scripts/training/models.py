@@ -48,6 +48,7 @@ class TrainingConfig:
     warmup_epochs: float    = 5.0            # warmup epochs (can be fractional)
     weight_decay: float = 0.0005  # L2 regularization
     pretrained_weights: str = ""  # path to .pt weights to load into yaml model; "" = no transfer
+    warmup_bias_lr: float = 0.1  # warmup bias LR (Ultralytics default)
 
     def __post_init__(self):
         if self.epochs <= 0:

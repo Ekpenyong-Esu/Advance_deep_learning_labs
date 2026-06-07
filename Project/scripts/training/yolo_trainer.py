@@ -148,6 +148,7 @@ def run_fine_tuning(config: TrainingConfig, aug_variant: str = "none") -> Path:
         # -------------------------
         "patience": config.patience,
         "weight_decay": config.weight_decay,
+        "warmup_bias_lr": config.warmup_bias_lr,
     }
     if config.optimizer is not None:
         train_kwargs["optimizer"] = config.optimizer

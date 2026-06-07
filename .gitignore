@@ -29,7 +29,7 @@ outputs/
 runs/
 wandb/
 WANDB/
-models/
+model/
 *.pt
 *.pth
 *.ckpt
